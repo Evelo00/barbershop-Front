@@ -1,33 +1,33 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Scissors } from "lucide-react";
+import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Scissors } from "lucide-react"
-import Link from "next/link"
-import { useToast } from "@/hooks/use-toast"
-
-const API_BASE_URL = "http://localhost:3000/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 
 export function RegisterForm() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     nombre: "",
-    correo: "",
-    contraseña: "",
+    apellido: "",
+    email: "",
+    password: "",
     rol: "cliente",
-  })
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/users`, {
@@ -36,30 +36,28 @@ export function RegisterForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Error al crear la cuenta")
+        throw new Error("Error al crear la cuenta");
       }
-
-      const user = await response.json()
 
       toast({
         title: "¡Cuenta creada!",
         description: "Tu cuenta ha sido creada exitosamente",
-      })
+      });
 
-      router.push("/login")
+      router.push("/login");
     } catch (error) {
       toast({
         title: "Error",
         description: "No se pudo crear la cuenta. Intenta nuevamente.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -74,16 +72,30 @@ export function RegisterForm() {
           <CardDescription>Regístrate para agendar tus citas</CardDescription>
         </div>
       </CardHeader>
+
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+
           <div className="space-y-2">
-            <Label htmlFor="nombre">Nombre Completo</Label>
+            <Label htmlFor="nombre">Nombre</Label>
             <Input
               id="nombre"
               type="text"
-              placeholder="Juan Pérez"
+              placeholder="Juan"
               value={formData.nombre}
               onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="apellido">Apellido</Label>
+            <Input
+              id="apellido"
+              type="text"
+              placeholder="Pérez"
+              value={formData.apellido}
+              onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
               required
             />
           </div>
@@ -94,8 +106,8 @@ export function RegisterForm() {
               id="correo"
               type="email"
               placeholder="tu@email.com"
-              value={formData.correo}
-              onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
@@ -106,8 +118,8 @@ export function RegisterForm() {
               id="contraseña"
               type="password"
               placeholder="••••••••"
-              value={formData.contraseña}
-              onChange={(e) => setFormData({ ...formData, contraseña: e.target.value })}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
               minLength={6}
             />
@@ -126,5 +138,5 @@ export function RegisterForm() {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }

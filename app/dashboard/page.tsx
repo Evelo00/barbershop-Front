@@ -83,7 +83,7 @@ export default function DashboardPage() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">{user.correo}</span>
+                    <span className="font-medium">{user.email}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Rol:</span>

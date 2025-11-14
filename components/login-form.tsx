@@ -1,67 +1,66 @@
-"use client"
+"use client";
 
-import type React from "react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Scissors } from "lucide-react";
+import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Scissors } from "lucide-react"
-import Link from "next/link"
-import { useToast } from "@/hooks/use-toast"
-
-const API_BASE_URL = "http://localhost:3000/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 
 export function LoginForm() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    correo: "",
-    contraseña: "",
-  })
+    email: "",
+    password: "",
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    e.preventDefault();
+    setIsLoading(true);
 
     try {
-      // Fetch all users and find matching credentials
-      const response = await fetch(`${API_BASE_URL}/users`)
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error("Error al conectar con el servidor")
+        throw new Error(data.message || "Error en login");
       }
 
-      const users = await response.json()
-      const user = users.find((u: any) => u.correo === formData.correo && u.contraseña === formData.contraseña)
+      // Guardar token
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user))
-        toast({
-          title: "¡Bienvenido!",
-          description: "Has iniciado sesión correctamente",
-        })
-        router.push("/dashboard")
-      } else {
-        toast({
-          title: "Error",
-          description: "Correo o contraseña incorrectos",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
+      toast({
+        title: "¡Bienvenido!",
+        description: "Has iniciado sesión correctamente",
+      });
+
+      router.push("/dashboard");
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "No se pudo conectar con el servidor",
+        description: error.message,
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -76,28 +75,29 @@ export function LoginForm() {
           <CardDescription>Ingresa tus credenciales para acceder</CardDescription>
         </div>
       </CardHeader>
+
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="correo">Correo Electrónico</Label>
+            <Label htmlFor="email">Correo Electrónico</Label>
             <Input
-              id="correo"
+              id="email"
               type="email"
               placeholder="tu@email.com"
-              value={formData.correo}
-              onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="contraseña">Contraseña</Label>
+            <Label htmlFor="password">Contraseña</Label>
             <Input
-              id="contraseña"
+              id="password"
               type="password"
               placeholder="••••••••"
-              value={formData.contraseña}
-              onChange={(e) => setFormData({ ...formData, contraseña: e.target.value })}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
             />
           </div>
@@ -115,5 +115,5 @@ export function LoginForm() {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }
