@@ -89,7 +89,7 @@ const View4Page: React.FC = () => {
     return (
         <div className="w-full min-h-screen flex justify-center items-stretch bg-gray-100 sm:p-8">
             <div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl shadow-2xl relative bg-white min-h-screen sm:min-h-[90vh] sm:rounded-xl">
-                
+
                 <div
                     className="p-6 pb-20 rounded-b-[40px] text-center text-white sm:rounded-t-xl"
                     style={{ backgroundColor: customColors['barber-dark'] }}
@@ -120,9 +120,8 @@ const View4Page: React.FC = () => {
                                 <div
                                     key={barber.id}
                                     onClick={() => handleSelectBarber(barber.id, barber.nombre)}
-                                    className={`text-center cursor-pointer p-2 transition duration-150 rounded-lg border-2 ${
-                                        selectedBarber === barber.id 
-                                            ? 'border-barber-black bg-gray-100 scale-105 shadow-md' 
+                                    className={`text-center cursor-pointer p-2 transition duration-150 rounded-lg border-2 ${selectedBarber === barber.id
+                                            ? 'border-barber-black bg-gray-100 scale-105 shadow-md'
                                             : 'border-white hover:border-gray-200 hover:bg-gray-50'
                                         }`}
                                     style={{ borderColor: selectedBarber === barber.id ? customColors['barber-black'] : 'white' }}
@@ -131,9 +130,12 @@ const View4Page: React.FC = () => {
                                     <div className="w-full aspect-square bg-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
                                         {barber.avatar ? (
                                             <img
-                                                src={barber.avatar}
+                                                src={barber.avatar ?? "/default-avatar.png"} 
                                                 alt={barber.nombre}
                                                 className="w-full h-full object-cover rounded-lg"
+                                                onError={(e) => {
+                                                    e.currentTarget.src = "https://placehold.co/200x200?text=Barbero";
+                                                }}
                                             />
                                         ) : (
                                             <svg className="w-1/2 h-1/2 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
@@ -159,9 +161,9 @@ const View4Page: React.FC = () => {
                     </button>
                 </div>
             </div>
-            
+
             {message && (
-                <div 
+                <div
                     className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-white shadow-xl z-50 transition duration-300"
                     style={{ backgroundColor: customColors['barber-dark'] }}
                 >

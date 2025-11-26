@@ -10,7 +10,6 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({
   whatsappLink = 'https://w.app/abalvi',
-  brandName = 'ABALVI BARBER',
 }) => {
   const router = useRouter();
 
@@ -51,10 +50,9 @@ const Home: React.FC<HomeProps> = ({
       </div>
       
       <footer 
-        className="fixed bottom-10 w-full text-sm lg:text-lg tracking-[0.3em] uppercase text-center"
-        style={{ fontFamily: "'Avenir', sans-serif" }}
+       className="fixed bottom-10 w-full text-sm lg:text-lg tracking-[0.3em] uppercase flex justify-center items-center"
       >
-        {brandName}
+        <img src="/Logo.png" alt="logo" className="w-26 h-4 mb-8" />
       </footer>
     </div>
   );

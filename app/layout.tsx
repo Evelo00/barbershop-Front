@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     initialScale: 1,
   },
   icons: {
-    icon: "public/Logo.png",
+    icon: "/Logo.png",
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
@@ -35,7 +35,6 @@ export const metadata: Metadata = {
     "Salón de barbería",
     "Citas en línea",
   ],
-  colorScheme: "light dark",
 };
 
 export default function RootLayout({

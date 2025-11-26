@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-
 interface ReservaData {
     nombre: string;
     correo?: string;
@@ -21,7 +20,6 @@ const View2Page: React.FC = () => {
         whatsapp: '',
     });
 
-    // Cargar datos existentes del localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const storedData = localStorage.getItem(STORAGE_KEY);
@@ -73,12 +71,12 @@ const View2Page: React.FC = () => {
             {/* Fondo */}
             <div className="absolute w-full h-1/35 bottom-0 z-0">
                 <img
-                    src="https://tse1.mm.bing.net/th/id/OIP.Kl_r8lc2LQuHqlwbfmP7jwHaE8?w=1024&h=683&rs=1&pid=ImgDetMain&o=7&rm=3"
+                    src="/FACHADA.png"
                     alt="Fondo de barbería moderna"
-                    className="w-full h-full object-cover opacity-70 grayscale blur-sm"
-                    onError={(e) => { e.currentTarget.src = "https://placehold.co/1024x683/000000/FFFFFF?text=Abalvi+Barber"; }}
+                    className="w-full h-full object-cover opacity-90 grayscale blur-sm"
+                    onError={(e) => { e.currentTarget.src = ""; }}
                 />
-                <div className="absolute inset-0 bg-white opacity-20"></div>
+                <div className="absolute inset-0 bg-white opacity-10"></div>
             </div>
 
             <div className="relative z-10 flex-grow flex flex-col items-center justify-center pb-12 w-full">
@@ -135,7 +133,7 @@ const View2Page: React.FC = () => {
 
                         <button
                             type="submit"
-                            className="mt-16 self-center inline-flex items-center justify-center px-6 py-2 sm:px-8 bg-black text-gray-100 text-lg font-medium tracking-widest transition-colors duration-300 hover:bg-gray-800 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="mt-16 self-center inline-flex items-center justify-center px-6 py-2 sm:px-8 bg-black text-gray-100 text-lg font-medium tracking-widest transition-colors duration-300 hover:bg-black shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{ fontFamily: FONT_AVENIR_BLACK }}
                             disabled={!formData.nombre.trim() || !formData.whatsapp.trim()}
                         >
@@ -146,9 +144,14 @@ const View2Page: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <footer className="text-base tracking-[0.4em] uppercase text-center text-black w-full flex justify-center items-center pb-28 bg-white/80" style={{ fontFamily: "'Avenir', sans-serif" }}>
-                <span className="font-bold mr-2">ABALVI</span>
-                <span className="font-normal">BARBER</span>
+            <footer
+              className="text-base tracking-[0.4em] uppercase text-center w-full flex justify-center items-center pb-28 bg-white/80"
+            >
+              <img
+                src="/Logo.png"
+                alt="logo"
+                className="w-40 h-auto mb-8 mx-auto filter invert"
+              />
             </footer>
         </div>
     );
