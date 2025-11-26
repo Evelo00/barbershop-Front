@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { format } from 'date-fns';
 import { useRouter } from "next/navigation";
 import {
     addMonths,
     subMonths,
-    format,
     startOfMonth,
     endOfMonth,
     startOfWeek,
@@ -131,16 +131,39 @@ const View5Page: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const dateTime = new Date(selectedDate);
-            const [hours, minutes] = selectedTime.split(":").map(Number);
-            dateTime.setHours(hours, minutes, 0, 0);
+            const [h, m] = selectedTime.split(":").map(Number);
+            const colombiaTZ = "America/Bogota";
+
+            // Fecha base local en Colombia
+            const baseDate = new Date(
+                selectedDate.getFullYear(),
+                selectedDate.getMonth(),
+                selectedDate.getDate(),
+                h,
+                m,
+                0,
+                0
+            );
+
+            // Convertir fecha/hora local → UTC real
+            const tz = await import('date-fns-tz');
+            // module shape may expose functions as named exports or under default; cast to any to satisfy TS
+            const zonedTimeToUtc = (tz as any).zonedTimeToUtc ?? (tz as any).default?.zonedTimeToUtc;
+            const fechaHoraUTC = zonedTimeToUtc(baseDate, colombiaTZ);
+            const fechaFinUTC = zonedTimeToUtc(
+                new Date(baseDate.getTime() + service.duration * 60000),
+                colombiaTZ
+            );
 
             const finalAppointment = {
                 clienteId: localStorage.getItem("abalvi_user_id") || null,
                 barberoId: barber,
                 servicioId: service.id,
-                fechaHora: dateTime.toISOString(),
-                fechaFin: new Date(dateTime.getTime() + service.duration * 60000).toISOString(),
+
+                // Mandar SIEMPRE en UTC al backend
+                fechaHora: fechaHoraUTC.toISOString(),
+                fechaFin: fechaFinUTC.toISOString(),
+
                 precioFinal: service.price,
                 duracionMinutos: service.duration,
                 nombreCliente: localStorage.getItem("abalvi_cliente_nombre") || null,
@@ -170,6 +193,7 @@ const View5Page: React.FC = () => {
             setIsLoading(false);
         }
     };
+
 
     const renderCalendar = () => {
         const monthStart = startOfMonth(currentMonth);
