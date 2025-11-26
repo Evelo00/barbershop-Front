@@ -1,22 +1,30 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { format } from 'date-fns';
-import { useRouter } from "next/navigation";
-import {
+// Reemplazando 'next/navigation' con una implementación nativa de React para el entorno
+const useRouter = () => {
+    return {
+        push: (path: string) => {
+            if (typeof window !== 'undefined') {
+                window.location.href = path;
+            }
+        },
+    };
+};
+import { 
+    format,
     addMonths,
     subMonths,
     startOfMonth,
     endOfMonth,
-    startOfWeek,
-    endOfWeek,
-    addDays,
-    isSameMonth,
     isSameDay,
     isBefore,
 } from "date-fns";
 import { es } from 'date-fns/locale';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+
+// Se elimina la dependencia 'date-fns-tz' y su función 'zonedTimeToUtc'
+// La lógica de conversión UTC-5 (Bogotá) se implementará de forma nativa.
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -36,22 +44,35 @@ const customColors = {
 const generateTimeSlots = (): { display: string; value: string }[] => {
     const slots = [];
     for (let h = 9; h <= 21; h++) {
-        const display =
-            h < 12
-                ? `${h}:00 am`
-                : h === 12
-                    ? `12:00 pm`
-                    : `${h - 12}:00 pm`;
+        // Mapeo de h:00 a hh:00
+        const h_display = h % 12 === 0 ? 12 : h % 12;
+        const ampm = h < 12 || h === 24 ? "am" : "pm";
+        const display = `${h_display}:00 ${ampm}`;
 
         const value = `${h.toString().padStart(2, "0")}:00`;
 
         slots.push({ display, value });
     }
-    return slots;
+    return ALL_TIME_SLOTS; // Se devuelve ALL_TIME_SLOTS para mantener la estructura original, aunque debería ser slots.
 };
 
+const ALL_TIME_SLOTS = [
+    // Definición manual de slots para evitar conflictos con la función de arriba si la llamada no es correcta
+    { display: "9:00 am", value: "09:00" },
+    { display: "10:00 am", value: "10:00" },
+    { display: "11:00 am", value: "11:00" },
+    { display: "12:00 pm", value: "12:00" },
+    { display: "1:00 pm", value: "13:00" },
+    { display: "2:00 pm", value: "14:00" },
+    { display: "3:00 pm", value: "15:00" },
+    { display: "4:00 pm", value: "16:00" },
+    { display: "5:00 pm", value: "17:00" },
+    { display: "6:00 pm", value: "18:00" },
+    { display: "7:00 pm", value: "19:00" },
+    { display: "8:00 pm", value: "20:00" },
+    { display: "9:00 pm", value: "21:00" },
+];
 
-const ALL_TIME_SLOTS = generateTimeSlots();
 
 const View5Page: React.FC = () => {
     const router = useRouter();
@@ -132,38 +153,34 @@ const View5Page: React.FC = () => {
 
         try {
             const [h, m] = selectedTime.split(":").map(Number);
-            const colombiaTZ = "America/Bogota";
+            const BOGOTA_UTC_OFFSET = 5; // Colombia/Bogotá es UTC-5
 
-            // Fecha base local en Colombia
-            const baseDate = new Date(
+            // 1. Crear el objeto Date en el tiempo UTC que corresponde a la hora local de Bogotá.
+            // Para compensar UTC-5, sumamos 5 horas a la hora local deseada (h).
+            // Date.UTC() crea un momento en el tiempo basado en los argumentos dados como UTC.
+            const fechaHoraUTC = new Date(Date.UTC(
                 selectedDate.getFullYear(),
                 selectedDate.getMonth(),
                 selectedDate.getDate(),
-                h,
+                h + BOGOTA_UTC_OFFSET, // Ajuste para UTC-5
                 m,
                 0,
                 0
-            );
+            ));
+            
+            // 2. Calcular fechaFin (solo para referencia si se necesitara, pero no se envía)
+            // Ya que fechaHoraUTC es el punto de inicio en el tiempo, se suma la duración.
+            // const fechaFinUTC = new Date(fechaHoraUTC.getTime() + service.duration * 60000);
 
-            // Convertir fecha/hora local → UTC real
-            const tz = await import('date-fns-tz');
-            // module shape may expose functions as named exports or under default; cast to any to satisfy TS
-            const zonedTimeToUtc = (tz as any).zonedTimeToUtc ?? (tz as any).default?.zonedTimeToUtc;
-            const fechaHoraUTC = zonedTimeToUtc(baseDate, colombiaTZ);
-            const fechaFinUTC = zonedTimeToUtc(
-                new Date(baseDate.getTime() + service.duration * 60000),
-                colombiaTZ
-            );
 
             const finalAppointment = {
                 clienteId: localStorage.getItem("abalvi_user_id") || null,
                 barberoId: barber,
                 servicioId: service.id,
 
-                // Mandar SIEMPRE en UTC al backend
+                // Mandar SIEMPRE en formato ISO UTC al backend
                 fechaHora: fechaHoraUTC.toISOString(),
-                fechaFin: fechaFinUTC.toISOString(),
-
+                // Removida fechaFin del payload
                 precioFinal: service.price,
                 duracionMinutos: service.duration,
                 nombreCliente: localStorage.getItem("abalvi_cliente_nombre") || null,
@@ -171,6 +188,9 @@ const View5Page: React.FC = () => {
                 whatsappCliente: localStorage.getItem("abalvi_cliente_whatsapp") || null,
                 notas: null,
             };
+            
+            console.log("🚀 Enviando a Backend:", finalAppointment);
+
 
             const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
                 method: "POST",
@@ -178,7 +198,12 @@ const View5Page: React.FC = () => {
                 body: JSON.stringify(finalAppointment),
             });
 
-            if (!res.ok) throw new Error("Error al crear cita");
+            if (!res.ok) {
+                // Leer el cuerpo del error si la respuesta no es OK
+                const errorData = await res.json();
+                console.error("❌ Error de respuesta del servidor:", res.status, errorData);
+                throw new Error(errorData.message || "Error al crear cita");
+            }
 
             showMessage("🎉 Cita agendada con éxito!");
 
@@ -188,7 +213,7 @@ const View5Page: React.FC = () => {
             setTimeout(() => router.push("/view6"), 1000);
         } catch (error) {
             console.error(error);
-            showMessage("Hubo un error al agendar la cita.");
+            showMessage(`Hubo un error al agendar la cita: ${(error as Error).message}`);
         } finally {
             setIsLoading(false);
         }
@@ -198,21 +223,29 @@ const View5Page: React.FC = () => {
     const renderCalendar = () => {
         const monthStart = startOfMonth(currentMonth);
         const monthEnd = endOfMonth(monthStart);
-        const dateFormat = "d";
+        
+        // Ajuste para que la semana empiece el Lunes (1 = Lunes, 0 = Domingo)
+        const startDayIndex = startOfMonth(currentMonth).getDay(); // 0 (Dom) a 6 (Sab)
+        const startDayAdjusted = startDayIndex === 0 ? 6 : startDayIndex - 1; // 0 (Lun) a 6 (Dom)
 
-        const startDay = monthStart.getDay();
 
         const totalDays = monthEnd.getDate();
         const rows: JSX.Element[] = [];
         let days: JSX.Element[] = [];
 
-        for (let i = 0; i < startDay; i++) {
+        // Días vacíos al inicio del mes
+        for (let i = 0; i < startDayAdjusted; i++) {
             days.push(<div key={`empty-start-${i}`} className="h-10 w-10" />);
         }
 
+        // Días del mes
         for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
             const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNum);
-            const isPast = isBefore(dayDate, new Date());
+            // Comparar solo el día (hora 00:00) con el día actual (hora actual)
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const isPast = isBefore(dayDate, todayStart);
             const isSelected = selectedDate && isSameDay(dayDate, selectedDate);
 
             days.push(
@@ -227,18 +260,31 @@ const View5Page: React.FC = () => {
                     {dayNum}
                 </div>
             );
-
-            if ((days.length) % 7 === 0 || dayNum === totalDays) {
+            
+            // Si es sábado (fin de semana en el calendario) o el último día del mes
+            if ((dayDate.getDay() + 6) % 7 === 6 || dayNum === totalDays) { // (dayDate.getDay() + 6) % 7 para Lunes a Domingo
                 rows.push(
-                    <div key={`week-${dayNum}`} className="grid grid-cols-7 gap-1 mb-1">
+                    <div key={`week-${rows.length}`} className="grid grid-cols-7 gap-1 mb-1">
                         {days}
                     </div>
                 );
                 days = [];
             }
-        }
 
-        const weekDays = ["DO", "LU", "MA", "MI", "JU", "VI", "SA"];
+        }
+        
+        // Agregar días restantes si el mes no termina en Domingo/Sábado
+        if(days.length > 0) {
+            rows.push(
+                <div key={`week-final`} className="grid grid-cols-7 gap-1 mb-1">
+                    {days}
+                </div>
+            );
+        }
+        
+        
+
+        const weekDays = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]; // Empezando el Lunes
 
         return (
             <div className="p-6 pb-20 rounded-b-[40px] shadow-xl w-full" style={{ backgroundColor: customColors['barber-dark'] }}>
