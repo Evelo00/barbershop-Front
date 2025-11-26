@@ -11,7 +11,7 @@ const useRouter = () => {
         },
     };
 };
-import { 
+import {
     format,
     addMonths,
     subMonths,
@@ -155,42 +155,34 @@ const View5Page: React.FC = () => {
             const [h, m] = selectedTime.split(":").map(Number);
             const BOGOTA_UTC_OFFSET = 5; // Colombia/Bogotá es UTC-5
 
-            // 1. Crear el objeto Date en el tiempo UTC que corresponde a la hora local de Bogotá.
-            // Para compensar UTC-5, sumamos 5 horas a la hora local deseada (h).
-            // Date.UTC() crea un momento en el tiempo basado en los argumentos dados como UTC.
+            // Crear la fecha en UTC
             const fechaHoraUTC = new Date(Date.UTC(
                 selectedDate.getFullYear(),
                 selectedDate.getMonth(),
                 selectedDate.getDate(),
-                h + BOGOTA_UTC_OFFSET, // Ajuste para UTC-5
+                h + BOGOTA_UTC_OFFSET,
                 m,
                 0,
                 0
             ));
-            
-            // 2. Calcular fechaFin (solo para referencia si se necesitara, pero no se envía)
-            // Ya que fechaHoraUTC es el punto de inicio en el tiempo, se suma la duración.
-            // const fechaFinUTC = new Date(fechaHoraUTC.getTime() + service.duration * 60000);
 
+            // Obtener datos del cliente desde localStorage
+            const storedCliente = JSON.parse(localStorage.getItem('abalvi_reserva_cliente') || '{}');
 
             const finalAppointment = {
                 clienteId: localStorage.getItem("abalvi_user_id") || null,
                 barberoId: barber,
                 servicioId: service.id,
-
-                // Mandar SIEMPRE en formato ISO UTC al backend
                 fechaHora: fechaHoraUTC.toISOString(),
-                // Removida fechaFin del payload
                 precioFinal: service.price,
                 duracionMinutos: service.duration,
-                nombreCliente: localStorage.getItem("abalvi_cliente_nombre") || null,
-                emailCliente: localStorage.getItem("abalvi_cliente_email") || null,
-                whatsappCliente: localStorage.getItem("abalvi_cliente_whatsapp") || null,
+                nombreCliente: storedCliente.nombre || null,
+                emailCliente: storedCliente.correo || null,
+                whatsappCliente: storedCliente.whatsapp || null,
                 notas: null,
             };
-            
-            console.log("🚀 Enviando a Backend:", finalAppointment);
 
+            console.log("🚀 Enviando a Backend:", finalAppointment);
 
             const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
                 method: "POST",
@@ -199,7 +191,6 @@ const View5Page: React.FC = () => {
             });
 
             if (!res.ok) {
-                // Leer el cuerpo del error si la respuesta no es OK
                 const errorData = await res.json();
                 console.error("❌ Error de respuesta del servidor:", res.status, errorData);
                 throw new Error(errorData.message || "Error al crear cita");
@@ -207,10 +198,13 @@ const View5Page: React.FC = () => {
 
             showMessage("🎉 Cita agendada con éxito!");
 
+            // Limpiar localStorage
             localStorage.removeItem("abalvi_reserva_servicio");
             localStorage.removeItem("abalvi_reserva_barbero");
+            localStorage.removeItem("abalvi_reserva_cliente"); // <-- Limpiamos datos del cliente
 
             setTimeout(() => router.push("/view6"), 1000);
+
         } catch (error) {
             console.error(error);
             showMessage(`Hubo un error al agendar la cita: ${(error as Error).message}`);
@@ -220,10 +214,11 @@ const View5Page: React.FC = () => {
     };
 
 
+
     const renderCalendar = () => {
         const monthStart = startOfMonth(currentMonth);
         const monthEnd = endOfMonth(monthStart);
-        
+
         // Ajuste para que la semana empiece el Lunes (1 = Lunes, 0 = Domingo)
         const startDayIndex = startOfMonth(currentMonth).getDay(); // 0 (Dom) a 6 (Sab)
         const startDayAdjusted = startDayIndex === 0 ? 6 : startDayIndex - 1; // 0 (Lun) a 6 (Dom)
@@ -260,7 +255,7 @@ const View5Page: React.FC = () => {
                     {dayNum}
                 </div>
             );
-            
+
             // Si es sábado (fin de semana en el calendario) o el último día del mes
             if ((dayDate.getDay() + 6) % 7 === 6 || dayNum === totalDays) { // (dayDate.getDay() + 6) % 7 para Lunes a Domingo
                 rows.push(
@@ -272,17 +267,17 @@ const View5Page: React.FC = () => {
             }
 
         }
-        
+
         // Agregar días restantes si el mes no termina en Domingo/Sábado
-        if(days.length > 0) {
+        if (days.length > 0) {
             rows.push(
                 <div key={`week-final`} className="grid grid-cols-7 gap-1 mb-1">
                     {days}
                 </div>
             );
         }
-        
-        
+
+
 
         const weekDays = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]; // Empezando el Lunes
 
