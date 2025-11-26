@@ -10,10 +10,13 @@ export default function DashboardRedirect() {
     const userData = localStorage.getItem("user");
 
     if (!userData) {
-      router.push("/login");
+      // Si no hay usuario logueado, redirigimos directamente a la página de agendamiento público.
+      // Esto implementa el "agendamiento como ventana principal para el cliente" sin login.
+      router.replace("/booking-publica"); // Usa una nueva ruta para el flujo de agendamiento
       return;
     }
 
+    // Si hay usuario logueado, se mantiene la lógica de redirección por rol
     const user = JSON.parse(userData);
     const rol = user.rol;
 
@@ -32,6 +35,7 @@ export default function DashboardRedirect() {
 
       case "cliente":
       default:
+        // Los clientes logueados pueden ver su dashboard si existe, o ir a la vista pública.
         router.replace("/dashboard/cliente");
         break;
     }

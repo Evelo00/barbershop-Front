@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, LogOut, User } from "lucide-react"
+import { Calendar, User } from "lucide-react"
 import Link from "next/link"
 import { BookingCard } from "@/components/booking-cards"
 
@@ -14,7 +13,7 @@ interface Booking {
   fechaHora: string
   servicioId: string
   barberoId: string
-  clienteId: string
+  clienteId?: string
 }
 
 interface Service {
@@ -29,9 +28,6 @@ interface Barber {
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [barbers, setBarbers] = useState<Barber[]>([])
@@ -39,47 +35,24 @@ export default function DashboardPage() {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
-  // Cargar info del usuario
+  // Cargar datos públicos (servicios, barberos, citas)
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/login")
-      return
-    }
-    setUser(JSON.parse(userData))
-  }, [router])
-
-  useEffect(() => {
-    if (!user) return
-
     const fetchAll = async () => {
       setLoading(true)
-      const token = localStorage.getItem("token")
-
       try {
         const [servicesRes, barbersRes, bookingsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/services`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/api/users?rol=barbero`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/api/citas`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          fetch(`${API_BASE_URL}/api/services`),
+          fetch(`${API_BASE_URL}/api/users?rol=barbero`),
+          fetch(`${API_BASE_URL}/api/citas`),
         ])
 
         const servicesData = await servicesRes.json()
         const barbersData = await barbersRes.json()
         const bookingsData = await bookingsRes.json()
 
-        const userBookings = Array.isArray(bookingsData)
-          ? bookingsData.filter((b: Booking) => b.clienteId === user.id)
-          : []
-
         setServices(Array.isArray(servicesData) ? servicesData : [])
         setBarbers(Array.isArray(barbersData) ? barbersData : [])
-        setBookings(userBookings)
+        setBookings(Array.isArray(bookingsData) ? bookingsData : [])
       } catch (error) {
         console.error("Error cargando datos:", error)
       } finally {
@@ -88,33 +61,23 @@ export default function DashboardPage() {
     }
 
     fetchAll()
-  }, [user])
-
-  const handleLogout = () => {
-    localStorage.removeItem("user")
-    localStorage.removeItem("token")
-    router.push("/login")
-  }
-
-  if (!user) return null
+  }, [API_BASE_URL])
 
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">BarberShop</h1>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="w-5 h-5" />
-          </Button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-8">
-
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Bienvenido, {user.nombre}</h2>
-            <p className="text-muted-foreground">Gestiona tus citas y perfil</p>
+            <h2 className="text-3xl font-bold tracking-tight">Bienvenido</h2>
+            <p className="text-muted-foreground">
+              Gestiona tus citas y elige tu servicio
+            </p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
@@ -144,20 +107,20 @@ export default function DashboardPage() {
                     <User className="w-6 h-6" />
                   </div>
                   <div>
-                    <CardTitle>Mi Perfil</CardTitle>
-                    <CardDescription>Ver y editar información</CardDescription>
+                    <CardTitle>Información</CardTitle>
+                    <CardDescription>Datos públicos de servicios y barberos</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">{user.email}</span>
+                    <span className="text-muted-foreground">Servicios:</span>
+                    <span className="font-medium">{services.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Rol:</span>
-                    <span className="font-medium capitalize">{user.rol}</span>
+                    <span className="text-muted-foreground">Barberos:</span>
+                    <span className="font-medium">{barbers.length}</span>
                   </div>
                 </div>
               </CardContent>
@@ -165,12 +128,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold">Tus próximas citas</h3>
+            <h3 className="text-xl font-semibold">Próximas citas</h3>
 
             {loading ? (
               <p className="text-muted-foreground">Cargando...</p>
             ) : bookings.length === 0 ? (
-              <p className="text-muted-foreground">No tienes citas programadas.</p>
+              <p className="text-muted-foreground">Aún no hay citas programadas.</p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {bookings.map((booking) => {
@@ -189,7 +152,6 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-
         </div>
       </main>
     </div>

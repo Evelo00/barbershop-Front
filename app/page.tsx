@@ -1,38 +1,65 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Scissors } from "lucide-react"
+'use client';
 
-export default function HomePage() {
+import React from 'react';
+import { useRouter } from 'next/navigation';
+
+interface HomeProps {
+  whatsappLink?: string;
+  brandName?: string;
+}
+
+const Home: React.FC<HomeProps> = ({
+  whatsappLink = 'https://w.app/abalvi',
+  brandName = 'ABALVI BARBER',
+}) => {
+  const router = useRouter();
+
+  const RESERVAS_ROUTE = '/view2'; // Ruta a tu view2
+
+  const handleNavigate = () => {
+    router.push(RESERVAS_ROUTE);
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <div className="max-w-md w-full space-y-8 text-center">
-        <div className="flex justify-center">
-          <div className="bg-primary text-primary-foreground p-6 rounded-full">
-            <Scissors className="w-12 h-12" />
-          </div>
-        </div>
+    <div className="flex flex-col min-h-screen bg-black text-white justify-center items-center p-16 sm:p-10 lg:p-16">
+      <div className="flex flex-col items-center justify-center w-full max-w-lg mx-auto">
+        <h1 
+          className="text-5xl sm:text-7xl lg:text-8xl font-black leading-tight uppercase tracking-wider mb-16 lg:mb-20 text-center"
+          style={{ fontFamily: "'Avenir Black', 'Avenir-Heavy', 'Avenir', sans-serif" }}
+        >
+          AGENDA<br />
+          TU CITA
+        </h1>
 
-        <div className="space-y-3">
-          <h1 className="text-4xl font-bold tracking-tight text-balance">BarberShop</h1>
-          <p className="text-lg text-muted-foreground text-pretty">
-            Reserva tu cita con los mejores barberos profesionales
-          </p>
-        </div>
+        <div className="flex flex-col space-y-4 w-full max-w-sm md:max-w-md">
+          {/* Botón que usa useRouter para navegar suavemente */}
+          <button
+            onClick={handleNavigate}
+            className="w-full text-center flex items-center justify-center border border-white bg-black rounded-[18px] py-3 px-6 text-sm md:text-base lg:text-lg font-medium uppercase tracking-widest transition-colors duration-300 hover:bg-white hover:text-black"
+          >
+            Link reservas Alamedas
+          </button>
 
-        <div className="space-y-4 pt-4">
-          <Link href="/login" className="block">
-            <Button size="lg" className="w-full">
-              Iniciar Sesión
-            </Button>
-          </Link>
-
-          <Link href="/register" className="block">
-            <Button size="lg" variant="outline" className="w-full bg-transparent">
-              Crear Cuenta
-            </Button>
-          </Link>
+          {/* Botón externo de Whatsapp */}
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full text-center flex items-center justify-center border border-white bg-black rounded-[18px] py-3 px-6 text-sm md:text-base lg:text-lg font-medium uppercase tracking-widest transition-colors duration-300 hover:bg-white hover:text-black"
+          >
+            Whatsapp Alamedas
+          </a>
         </div>
       </div>
+      
+      <footer 
+        className="fixed bottom-10 w-full text-sm lg:text-lg tracking-[0.3em] uppercase text-center"
+        style={{ fontFamily: "'Avenir', sans-serif" }}
+      >
+        {brandName}
+      </footer>
     </div>
-  )
-}
+  );
+};
+
+export default Home;
