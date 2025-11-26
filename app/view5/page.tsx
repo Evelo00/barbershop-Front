@@ -15,7 +15,7 @@ import {
     isSameDay,
     isBefore,
 } from "date-fns";
-import { es } from 'date-fns/locale'; // Importar locale español para los meses
+import { es } from 'date-fns/locale';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -32,17 +32,24 @@ const customColors = {
     "barber-black": "#1c1c1c",
 };
 
-/** Genera slots de 9:00 a 19:00 */
+/** Genera slots de 9:00 a 21:00 */
 const generateTimeSlots = (): { display: string; value: string }[] => {
     const slots = [];
-    for (let h = 9; h <= 19; h++) {
+    for (let h = 9; h <= 21; h++) {
         const display =
-            h < 12 ? `${h}:00 am` : h === 12 ? `12:00 pm` : `${h - 12}:00 pm`;
+            h < 12
+                ? `${h}:00 am`
+                : h === 12
+                    ? `12:00 pm`
+                    : `${h - 12}:00 pm`;
+
         const value = `${h.toString().padStart(2, "0")}:00`;
+
         slots.push({ display, value });
     }
     return slots;
 };
+
 
 const ALL_TIME_SLOTS = generateTimeSlots();
 
@@ -81,7 +88,7 @@ const View5Page: React.FC = () => {
     const fetchAvailableSlots = async (date: Date) => {
         if (!service || !barber) return;
         setIsLoading(true);
-        setAvailableSlots([]); // Limpiar slots al cambiar de día
+        setAvailableSlots([]);
         try {
             const dateStr = format(date, "yyyy-MM-dd"); // Usar date-fns para formato
             const res = await fetch(
@@ -115,7 +122,6 @@ const View5Page: React.FC = () => {
         setAvailableSlots([]);
     };
 
-    // Finalizar cita y enviar al backend
     const handleFinalize = async () => {
         if (!selectedDate || !selectedTime || !service || !barber) {
             showMessage("Selecciona fecha y hora válidas.");
@@ -125,7 +131,6 @@ const View5Page: React.FC = () => {
         setIsLoading(true);
 
         try {
-            // ... (Lógica de handleFinalize se mantiene igual)
             const dateTime = new Date(selectedDate);
             const [hours, minutes] = selectedTime.split(":").map(Number);
             dateTime.setHours(hours, minutes, 0, 0);
@@ -166,20 +171,17 @@ const View5Page: React.FC = () => {
         }
     };
 
-    // Render calendario
     const renderCalendar = () => {
         const monthStart = startOfMonth(currentMonth);
         const monthEnd = endOfMonth(monthStart);
         const dateFormat = "d";
 
-        // Calculamos el día de la semana del primer día del mes (0 = domingo)
         const startDay = monthStart.getDay();
 
         const totalDays = monthEnd.getDate();
         const rows: JSX.Element[] = [];
         let days: JSX.Element[] = [];
 
-        // Rellenamos el inicio de la primera semana con días vacíos si el mes no empieza en domingo
         for (let i = 0; i < startDay; i++) {
             days.push(<div key={`empty-start-${i}`} className="h-10 w-10" />);
         }
@@ -202,7 +204,6 @@ const View5Page: React.FC = () => {
                 </div>
             );
 
-            // Cuando se completa la semana, la agregamos a rows y reiniciamos days
             if ((days.length) % 7 === 0 || dayNum === totalDays) {
                 rows.push(
                     <div key={`week-${dayNum}`} className="grid grid-cols-7 gap-1 mb-1">
@@ -250,13 +251,10 @@ const View5Page: React.FC = () => {
 
     return (
         <div className="w-full min-h-screen flex justify-center items-stretch bg-gray-100 sm:p-8">
-            {/* Contenedor principal: define el ancho máximo, mantiene la curva en móvil y se redondea en PC */}
             <div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl shadow-2xl relative bg-white min-h-screen sm:min-h-[90vh] sm:rounded-xl">
 
-                {/* 1. CALENDARIO */}
                 {renderCalendar()}
 
-                {/* 2. HORARIOS */}
                 <div className="relative -top-12 px-6">
                     <div className="bg-white p-6 rounded-lg shadow-lg">
                         <h3 className="text-xl font-bold mb-4 text-center" style={{ color: customColors['barber-black'] }}>ELIGE LA HORA</h3>
@@ -296,14 +294,12 @@ const View5Page: React.FC = () => {
                     </div>
                 </div>
 
-                {/* INFO (Barbero/Servicio) */}
                 <div className="px-6 pt-0 text-center relative -top-6">
                     <p className="text-sm text-gray-600 mb-4">
                         <span className="font-semibold">Barbero:</span> {barberName} | <span className="font-semibold">Servicio:</span> {service?.name} - ${service?.price?.toLocaleString("es-CO")}
                     </p>
                 </div>
 
-                {/* 3. BOTÓN AGENDAR */}
                 <div className="p-6 pt-0 relative -top-6">
                     <button
                         onClick={handleFinalize}
@@ -316,7 +312,6 @@ const View5Page: React.FC = () => {
                 </div>
             </div>
 
-            {/* Mensaje Flotante */}
             {message && (
                 <div
                     className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-white shadow-xl z-50 transition duration-300"

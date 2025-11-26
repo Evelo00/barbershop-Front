@@ -9,9 +9,33 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.app",
+  title: "Avalbi Barber Shop",
+  description: "Reserva tu cita en Avalbi Barber Shop de manera fácil y rápida.",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+  },
+  icons: {
+    icon: "public/Logo.png",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
+  generator: "Next.js",
+  applicationName: "Avalbi Barber Shop",
+  authors: [{ name: "Eyver Vergara", url: "https://www.linkedin.com/in/evelo00/" }],
+  keywords: [
+    "Barbería",
+    "Citas de barbería",
+    "Reservas de barbería",
+    "Cortes de cabello",
+    "Afeitado",
+    "Estilo de barba",
+    "Servicios de barbería",
+    "Barberos profesionales",
+    "Salón de barbería",
+    "Citas en línea",
+  ],
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({

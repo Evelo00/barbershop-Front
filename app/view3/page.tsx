@@ -93,7 +93,6 @@ const View3Page: React.FC = () => {
                 <p className="text-sm uppercase tracking-widest text-white" style={{ fontFamily: FONT_AVENIR }}>
                     ABALVI BARBER
                 </p>
-                {/* Foto / Pauta dentro del header */}
                 <div className="mt-4 mb-2 bg-white rounded-xl shadow-md py-6 px-4 mx-4">
                     <p className="text-lg font-bold uppercase tracking-widest text-black" style={{ fontFamily: FONT_AVENIR_BLACK }}>
                         ESPACIO PARA<br />FOTO O PAUTA
@@ -109,8 +108,8 @@ const View3Page: React.FC = () => {
                             onClick={() => setActiveCategory(cat)}
                             className={`text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-md px-3 py-1
         ${activeCategory === cat
-                                    ? 'bg-black text-white'   // botón seleccionado: fondo negro, letras blancas
-                                    : 'bg-white text-black hover:bg-black/10 hover:text-black' // no seleccionado
+                                    ? 'bg-black text-white'  
+                                    : 'bg-white text-black hover:bg-black/10 hover:text-black'
                                 }`}
                             style={{ fontFamily: FONT_AVENIR_BLACK }}
                         >
@@ -119,7 +118,6 @@ const View3Page: React.FC = () => {
                     ))}
                 </div>
 
-                {/* Lista de servicios */}
                 <div className="bg-white shadow-xl pt-2 pb-20 rounded-b-xl min-h-[300px] mt-2">
                     {error ? (
                         <div className="p-4 text-center text-red-600 bg-red-100 border border-red-400 rounded-lg mx-4 mt-4">

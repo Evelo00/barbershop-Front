@@ -4,7 +4,6 @@ import { useEffect } from "react";
 
 export default function View6() {
 
-  // Al cargar, se limpian datos temporales
   useEffect(() => {
     localStorage.removeItem("clientInfo");
   }, []);
@@ -12,10 +11,8 @@ export default function View6() {
   return (
     <div className="min-h-screen text-white flex flex-col items-center justify-between p-6 bg-black">
 
-      {/* Contenido principal */}
       <div className="flex flex-col items-center justify-center flex-grow text-center pt-24">
 
-        {/* Checkmark */}
         <svg
           className="w-28 h-28 mb-10 text-white"
           viewBox="0 0 24 24"

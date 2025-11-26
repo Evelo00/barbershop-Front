@@ -88,10 +88,8 @@ const View4Page: React.FC = () => {
 
     return (
         <div className="w-full min-h-screen flex justify-center items-stretch bg-gray-100 sm:p-8">
-            {/* Contenedor principal: define el ancho máximo y aplica la sombra/borde */}
             <div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl shadow-2xl relative bg-white min-h-screen sm:min-h-[90vh] sm:rounded-xl">
                 
-                {/* Header (Con bordes redondeados solo en el contenedor) */}
                 <div
                     className="p-6 pb-20 rounded-b-[40px] text-center text-white sm:rounded-t-xl"
                     style={{ backgroundColor: customColors['barber-dark'] }}
@@ -107,7 +105,6 @@ const View4Page: React.FC = () => {
                     )}
                 </div>
 
-                {/* Grid de Barberos */}
                 <div className="relative -top-12 px-6 pb-6">
                     {loadingBarbers ? (
                         <p className="p-8 text-center flex items-center justify-center text-gray-700 bg-white rounded-lg shadow-md">
@@ -151,7 +148,6 @@ const View4Page: React.FC = () => {
                     )}
                 </div>
 
-                {/* Botón de regreso */}
                 <div className="p-6 pt-0 text-center">
                     <button
                         onClick={() => router.push('/view3')}
@@ -164,7 +160,6 @@ const View4Page: React.FC = () => {
                 </div>
             </div>
             
-            {/* Mensaje Flotante */}
             {message && (
                 <div 
                     className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-white shadow-xl z-50 transition duration-300"

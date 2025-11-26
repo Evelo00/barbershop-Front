@@ -63,7 +63,6 @@ const View2Page: React.FC = () => {
     return (
         <div className="relative min-h-screen flex flex-col text-black overflow-hidden bg-white">
 
-            {/* Fondo */}
             <div className="absolute w-full h-1/35 bottom-0 z-0">
                 <img
                     src="https://tse1.mm.bing.net/th/id/OIP.Kl_r8lc2LQuHqlwbfmP7jwHaE8?w=1024&h=683&rs=1&pid=ImgDetMain&o=7&rm=3"
@@ -76,7 +75,6 @@ const View2Page: React.FC = () => {
                 <div className="absolute inset-0 bg-white opacity-20"></div>
             </div>
 
-            {/* Contenido principal */}
             <div className="relative z-10 flex-grow flex flex-col items-center justify-center pb-12 w-full">
                 <div className="w-full max-w-sm sm:max-w-md px-8 sm:px-0">
 
