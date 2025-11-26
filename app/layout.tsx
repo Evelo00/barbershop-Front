@@ -9,7 +9,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Avalbi Barber Shop",
+  title: "Abalvi Barber Shop",
   description: "Reserva tu cita en Avalbi Barber Shop de manera fácil y rápida.",
   viewport: {
     width: "device-width",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   generator: "Next.js",
-  applicationName: "Avalbi Barber Shop",
+  applicationName: "Abalvi Barber Shop",
   authors: [{ name: "Eyver Vergara", url: "https://www.linkedin.com/in/evelo00/" }],
   keywords: [
     "Barbería",
