@@ -23,9 +23,6 @@ import {
 import { es } from 'date-fns/locale';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
-// Se elimina la dependencia 'date-fns-tz' y su función 'zonedTimeToUtc'
-// La lógica de conversión UTC-5 (Bogotá) se implementará de forma nativa.
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 interface Service {
@@ -40,37 +37,31 @@ const customColors = {
     "barber-black": "#1c1c1c",
 };
 
-/** Genera slots de 9:00 a 21:00 */
-const generateTimeSlots = (): { display: string; value: string }[] => {
-    const slots = [];
-    for (let h = 9; h <= 21; h++) {
-        // Mapeo de h:00 a hh:00
-        const h_display = h % 12 === 0 ? 12 : h % 12;
-        const ampm = h < 12 || h === 24 ? "am" : "pm";
-        const display = `${h_display}:00 ${ampm}`;
-
-        const value = `${h.toString().padStart(2, "0")}:00`;
-
-        slots.push({ display, value });
-    }
-    return ALL_TIME_SLOTS; // Se devuelve ALL_TIME_SLOTS para mantener la estructura original, aunque debería ser slots.
-};
-
 const ALL_TIME_SLOTS = [
-    // Definición manual de slots para evitar conflictos con la función de arriba si la llamada no es correcta
     { display: "9:00 am", value: "09:00" },
+    { display: "9:30 am", value: "09:30" },
     { display: "10:00 am", value: "10:00" },
+    { display: "10:30 am", value: "10:30" },
     { display: "11:00 am", value: "11:00" },
+    { display: "11:30 am", value: "11:30" },
     { display: "12:00 pm", value: "12:00" },
+    { display: "12:30 pm", value: "12:30" },
     { display: "1:00 pm", value: "13:00" },
+    { display: "1:30 pm", value: "13:30" },
     { display: "2:00 pm", value: "14:00" },
+    { display: "2:30 pm", value: "14:30" },
     { display: "3:00 pm", value: "15:00" },
+    { display: "3:30 pm", value: "15:30" },
     { display: "4:00 pm", value: "16:00" },
+    { display: "4:30 pm", value: "16:30" },
     { display: "5:00 pm", value: "17:00" },
+    { display: "5:30 pm", value: "17:30" },
     { display: "6:00 pm", value: "18:00" },
+    { display: "6:30 pm", value: "18:30" },
     { display: "7:00 pm", value: "19:00" },
+    { display: "7:30 pm", value: "19:30" },
     { display: "8:00 pm", value: "20:00" },
-    { display: "9:00 pm", value: "21:00" },
+    { display: "8:30 pm", value: "20:30" },
 ];
 
 
@@ -87,34 +78,33 @@ const View5Page: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
-    // Cargar datos de servicio y barbero desde localStorage
-    useEffect(() => {
-        const storedService = localStorage.getItem("abalvi_reserva_servicio");
-        const storedBarberId = localStorage.getItem("abalvi_reserva_barbero");
-        const storedBarberName = localStorage.getItem(
-            "abalvi_reserva_barbero_nombre"
-        );
-
-        if (storedService) setService(JSON.parse(storedService));
-        if (storedBarberId) setBarber(storedBarberId);
-        if (storedBarberName) setBarberName(storedBarberName);
-    }, []);
+    // Estado para saber si la inicialización (carga de localStorage y disponibilidad) ha terminado
+    const [isInitialized, setIsInitialized] = useState(false);
 
     const showMessage = (text: string) => {
         setMessage(text);
-        setTimeout(() => setMessage(null), 2500);
+        setTimeout(() => setMessage(null), 3500); // Aumento de tiempo para mensajes de error
     };
 
     // Fetch de horarios disponibles
-    const fetchAvailableSlots = async (date: Date) => {
-        if (!service || !barber) return;
+    const fetchAvailableSlots = async (date: Date, currentBarber: string, currentService: Service) => {
+        // Validación extra: no cargar si no hay datos
+        if (!currentService || !currentBarber) return;
+
         setIsLoading(true);
         setAvailableSlots([]);
         try {
-            const dateStr = format(date, "yyyy-MM-dd"); // Usar date-fns para formato
+            const dateStr = format(date, "yyyy-MM-dd");
+            // Se asegura de enviar barberId y serviceDuration (ya implementado)
             const res = await fetch(
-                `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${service.duration}&barberId=${barber}`
+                `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${currentService.duration}&barberoId=${currentBarber}`
             );
+
+            if (!res.ok) {
+                showMessage("Error: No se pudo verificar la disponibilidad. Intenta nuevamente.");
+                return;
+            }
+
             const data = await res.json();
             setAvailableSlots(data.availableSlots || []);
         } catch (error) {
@@ -125,12 +115,47 @@ const View5Page: React.FC = () => {
         }
     };
 
+    // --- EFECTO DE INICIALIZACIÓN Y CARGA DE DATOS ---
+    useEffect(() => {
+        const storedService = localStorage.getItem("abalvi_reserva_servicio");
+        const storedBarberId = localStorage.getItem("abalvi_reserva_barbero");
+        const storedBarberName = localStorage.getItem(
+            "abalvi_reserva_barbero_nombre"
+        );
+
+        let s: Service | null = null;
+        let b: string | null = null;
+
+        if (storedService) {
+            s = JSON.parse(storedService);
+            setService(s);
+        }
+        if (storedBarberId) {
+            b = storedBarberId;
+            setBarber(b);
+        }
+        if (storedBarberName) setBarberName(storedBarberName);
+
+        // --- LÓGICA: Cargar slots para HOY si los datos están disponibles ---
+        if (s && b) {
+            const today = new Date();
+            // Poner el selectedDate al día de hoy e iniciar la carga
+            setSelectedDate(today);
+            fetchAvailableSlots(today, b, s);
+        }
+
+        setIsInitialized(true);
+    }, []);
+
+    // Se asegura que handleDaySelect use los estados internos después de la inicialización
     const handleDaySelect = (day: Date) => {
+        if (!service || !barber) return;
+
         // Solo seleccionar y cargar slots si no es el día ya seleccionado
         if (!selectedDate || !isSameDay(day, selectedDate)) {
             setSelectedDate(day);
             setSelectedTime(null);
-            fetchAvailableSlots(day);
+            fetchAvailableSlots(day, barber, service);
         }
     };
 
@@ -155,12 +180,12 @@ const View5Page: React.FC = () => {
             const [h, m] = selectedTime.split(":").map(Number);
             const BOGOTA_UTC_OFFSET = 5; // Colombia/Bogotá es UTC-5
 
-            // Crear la fecha en UTC
+            // Crear la fecha en UTC (el backend recibe y almacena UTC)
             const fechaHoraUTC = new Date(Date.UTC(
                 selectedDate.getFullYear(),
                 selectedDate.getMonth(),
                 selectedDate.getDate(),
-                h + BOGOTA_UTC_OFFSET,
+                h + BOGOTA_UTC_OFFSET, // Ajustar la hora local (09:00 BOG) al UTC (14:00 UTC)
                 m,
                 0,
                 0
@@ -193,7 +218,25 @@ const View5Page: React.FC = () => {
             if (!res.ok) {
                 const errorData = await res.json();
                 console.error("❌ Error de respuesta del servidor:", res.status, errorData);
-                throw new Error(errorData.message || "Error al crear cita");
+
+                if (res.status === 409) {
+                    showMessage("¡Conflicto! Este turno acaba de ser tomado por otra persona.");
+
+                    // 1. Bloquearlo inmediatamente en UI
+                    if (selectedTime) {
+                        setAvailableSlots(prev => prev.filter(t => t !== selectedTime));
+                        setSelectedTime(null);
+                    }
+
+                    // 2. Sincronizar con backend
+                    if (selectedDate) {
+                        fetchAvailableSlots(selectedDate, barber, service);
+                    }
+
+                    return;
+                }
+
+                throw new Error(errorData.message || `Error al crear cita. Estado: ${res.status}`);
             }
 
             showMessage("🎉 Cita agendada con éxito!");
@@ -201,7 +244,7 @@ const View5Page: React.FC = () => {
             // Limpiar localStorage
             localStorage.removeItem("abalvi_reserva_servicio");
             localStorage.removeItem("abalvi_reserva_barbero");
-            localStorage.removeItem("abalvi_reserva_cliente"); // <-- Limpiamos datos del cliente
+            localStorage.removeItem("abalvi_reserva_cliente");
 
             setTimeout(() => router.push("/view6"), 1000);
 
@@ -212,7 +255,6 @@ const View5Page: React.FC = () => {
             setIsLoading(false);
         }
     };
-
 
 
     const renderCalendar = () => {
@@ -243,6 +285,10 @@ const View5Page: React.FC = () => {
             const isPast = isBefore(dayDate, todayStart);
             const isSelected = selectedDate && isSameDay(dayDate, selectedDate);
 
+            // Check if the day is the actual today (for styling)
+            const isToday = isSameDay(dayDate, new Date());
+
+
             days.push(
                 <div
                     key={dayDate.toISOString()}
@@ -250,14 +296,15 @@ const View5Page: React.FC = () => {
                     className={`flex items-center justify-center cursor-pointer h-10 w-10 text-sm font-semibold transition
                     ${isPast ? "opacity-30 pointer-events-none" : ""}
                     ${isSelected ? "bg-white text-black rounded-full shadow-lg" : "hover:bg-gray-700 rounded-full text-white"}
+                    ${isToday && !isSelected && !isPast ? "border-2 border-white" : ""}
                 `}
                 >
                     {dayNum}
                 </div>
             );
 
-            // Si es sábado (fin de semana en el calendario) o el último día del mes
-            if ((dayDate.getDay() + 6) % 7 === 6 || dayNum === totalDays) { // (dayDate.getDay() + 6) % 7 para Lunes a Domingo
+            // Si es domingo ((dayDate.getDay() + 6) % 7 === 6 en Lunes-Domingo) o el último día del mes
+            if ((dayDate.getDay() + 6) % 7 === 6 || dayNum === totalDays) {
                 rows.push(
                     <div key={`week-${rows.length}`} className="grid grid-cols-7 gap-1 mb-1">
                         {days}
@@ -268,15 +315,20 @@ const View5Page: React.FC = () => {
 
         }
 
-        // Agregar días restantes si el mes no termina en Domingo/Sábado
+        // Agregar días restantes si el mes no termina en Domingo
         if (days.length > 0) {
+            // Llenar los espacios vacíos al final de la última semana
+            const remainingEmptySlots = 7 - days.length;
+            for (let i = 0; i < remainingEmptySlots; i++) {
+                days.push(<div key={`empty-end-${i}`} className="h-10 w-10" />);
+            }
+
             rows.push(
                 <div key={`week-final`} className="grid grid-cols-7 gap-1 mb-1">
                     {days}
                 </div>
             );
         }
-
 
 
         const weekDays = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]; // Empezando el Lunes
@@ -293,7 +345,12 @@ const View5Page: React.FC = () => {
                 <h2 className="text-2xl font-extrabold text-white mb-6 text-center">ELIGE LA FECHA</h2>
 
                 <div className="flex items-center justify-between mb-4">
-                    <button onClick={() => handleMonthChange("prev")} disabled={isLoading} className="text-white text-2xl p-2 rounded-full hover:bg-gray-700 transition">
+                    <button
+                        onClick={() => handleMonthChange("prev")}
+                        // Deshabilitar el botón si el mes actual es el mismo que el mes de hoy
+                        disabled={isLoading || isSameDay(startOfMonth(currentMonth), startOfMonth(new Date()))}
+                        className="text-white text-2xl p-2 rounded-full hover:bg-gray-700 transition disabled:opacity-50"
+                    >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <span className="text-white font-bold text-lg tracking-wider">{format(currentMonth, "MMMM yyyy", { locale: es }).toUpperCase()}</span>
@@ -324,23 +381,34 @@ const View5Page: React.FC = () => {
                     <div className="bg-white p-6 rounded-lg shadow-lg">
                         <h3 className="text-xl font-bold mb-4 text-center" style={{ color: customColors['barber-black'] }}>ELIGE LA HORA</h3>
 
-                        {selectedDate && isLoading ? (
-                            <p className="text-center text-gray-500">Buscando horarios...</p>
+                        {/* Mostrar carga si está cargando O si no se ha inicializado y no hay slots aún */}
+                        {isLoading || !isInitialized ? (
+                            <p className="text-center text-gray-500">Cargando datos y horarios...</p>
                         ) : selectedDate && availableSlots.length === 0 ? (
                             <p className="text-center text-gray-500">No hay horarios disponibles para la fecha seleccionada.</p>
                         ) : (
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                                 {ALL_TIME_SLOTS.map((slot) => {
-                                    const isAvailable = availableSlots.includes(slot.value);
-                                    const isSelected = selectedTime === slot.value;
+
+                                    // Normaliza HH:mm (ej: "9:00" → "09:00")
+                                    const normalize = (t: string) =>
+                                        t.length === 4 ? "0" + t : t;
+
+                                    const slotNormalized = normalize(slot.value);
+
+                                    // Normalizar TODO lo que llega del backend
+                                    const availableNormalized = availableSlots.map(normalize);
+
+                                    const isAvailable = availableNormalized.includes(slotNormalized);
+                                    const isSelected = selectedTime === slotNormalized;
 
                                     return (
                                         <button
-                                            key={slot.value}
-                                            onClick={() => isAvailable && setSelectedTime(slot.value)}
+                                            key={slotNormalized}
+                                            onClick={() => isAvailable && setSelectedTime(slotNormalized)}
                                             disabled={!isAvailable || isLoading || !selectedDate}
                                             className={`py-3 rounded-lg font-semibold transition text-sm sm:text-base
-                                                ${isSelected
+                    ${isSelected
                                                     ? "bg-black text-white shadow-lg border-2 border-black"
                                                     : isAvailable
                                                         ? "bg-white text-black border border-gray-400 hover:bg-gray-100"
@@ -352,8 +420,9 @@ const View5Page: React.FC = () => {
                                     );
                                 })}
                             </div>
+
                         )}
-                        {!selectedDate && (
+                        {!selectedDate && isInitialized && ( // Mostrar este mensaje solo si ya terminó la inicialización y no hay fecha seleccionada
                             <p className="text-center text-gray-500 mt-4">Por favor, selecciona una fecha primero.</p>
                         )}
                     </div>
@@ -369,7 +438,7 @@ const View5Page: React.FC = () => {
                     <button
                         onClick={handleFinalize}
                         disabled={!selectedTime || isLoading}
-                        className="w-full py-3 rounded-lg text-white font-semibold transition"
+                        className="w-full py-3 rounded-lg text-white font-semibold transition disabled:opacity-50"
                         style={{ backgroundColor: customColors['barber-dark'] }}
                     >
                         {isLoading ? "Agendando..." : "Agendar"}

@@ -11,10 +11,6 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "Abalvi Barber Shop",
   description: "Reserva tu cita en Avalbi Barber Shop de manera fácil y rápida.",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
   icons: {
     icon: "/Logo.png",
     shortcut: "/favicon-16x16.png",
@@ -36,7 +32,6 @@ export const metadata: Metadata = {
     "Citas en línea",
   ],
 };
-
 export default function RootLayout({
   children,
 }: Readonly<{
