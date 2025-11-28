@@ -20,39 +20,29 @@ interface Service {
   name: string;
   price: number;
   duration: number;
+  duracionMinutos: number;
+}
+
+interface TimeSlot {
+  display: string;
+  value: string;
 }
 
 const customColors = {
   "barber-dark": "#2A2A2A",
 };
 
-// HORARIOS FIJOS
-const ALL_TIME_SLOTS = [
-  { display: "9:00 am", value: "09:00" },
-  { display: "9:30 am", value: "09:30" },
-  { display: "10:00 am", value: "10:00" },
-  { display: "10:30 am", value: "10:30" },
-  { display: "11:00 am", value: "11:00" },
-  { display: "11:30 am", value: "11:30" },
-  { display: "12:00 pm", value: "12:00" },
-  { display: "12:30 pm", value: "12:30" },
-  { display: "1:00 pm", value: "13:00" },
-  { display: "1:30 pm", value: "13:30" },
-  { display: "2:00 pm", value: "14:00" },
-  { display: "2:30 pm", value: "14:30" },
-  { display: "3:00 pm", value: "15:00" },
-  { display: "3:30 pm", value: "15:30" },
-  { display: "4:00 pm", value: "16:00" },
-  { display: "4:30 pm", value: "16:30" },
-  { display: "5:00 pm", value: "17:00" },
-  { display: "5:30 pm", value: "17:30" },
-  { display: "6:00 pm", value: "18:00" },
-  { display: "6:30 pm", value: "18:30" },
-  { display: "7:00 pm", value: "19:00" },
-  { display: "7:30 pm", value: "19:30" },
-  { display: "8:00 pm", value: "20:00" },
-  { display: "8:30 pm", value: "20:30" },
-];
+// GENERACIÓN DE HORAS 15 MIN
+const ALL_TIME_SLOTS: TimeSlot[] = [];
+for (let h = 9; h <= 20; h++) {
+  for (let m of [0, 15, 30, 45]) {
+    const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const ampmH = h % 12 || 12;
+    const ampm = h < 12 ? "am" : "pm";
+    const display = `${ampmH}:${String(m).padStart(2, "0")} ${ampm}`;
+    ALL_TIME_SLOTS.push({ display, value });
+  }
+}
 
 const View5Page: React.FC = () => {
   const router = { push: (path: string) => (window.location.href = path) };
@@ -97,7 +87,7 @@ const View5Page: React.FC = () => {
       const dateStr = format(day, "yyyy-MM-dd");
 
       const res = await fetch(
-        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${service.duration}&barberoId=${barberId}`
+        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${service.duracionMinutos}&barberoId=${barberId}`
       );
 
       const data = await res.json();
@@ -125,59 +115,6 @@ const View5Page: React.FC = () => {
     setAvailableSlots([]);
   };
 
-  // const handleFinalize = async () => {
-  //   if (!selectedDate || !selectedTime || !service || !barberId) {
-  //     showMessage("Selecciona fecha y hora.");
-  //     return;
-  //   }
-
-  //   const dateStr = format(selectedDate, "yyyy-MM-dd");
-
-  //   const fechaBogota = new Date(`${dateStr}T${selectedTime}:00-05:00`);
-
-  //   const fechaHoraUTC = fechaBogota.toISOString();
-
-  //   console.log("🕒 Bogotá local:", fechaBogota.toString());
-  //   console.log("🌎 Enviando UTC:", fechaHoraUTC);
-
-  //   const clientData = JSON.parse(
-  //     localStorage.getItem("abalvi_reserva_cliente") || "{}"
-  //   );
-
-  //   const body = {
-  //     clienteId: null,
-  //     barberoId: barberId,
-  //     servicioId: service.id,
-  //     fechaHora: fechaHoraUTC,
-  //     precioFinal: service.price,
-  //     nombreCliente: clientData.nombre || null,
-  //     emailCliente: clientData.correo || null,
-  //     whatsappCliente: clientData.whatsapp || null,
-  //     notas: null,
-  //   };
-
-  //   try {
-  //     const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify(body),
-  //     });
-
-  //     if (res.status === 409) {
-  //       showMessage("Ese turno ya está ocupado.");
-  //       fetchAvailable(selectedDate);
-  //       return;
-  //     }
-
-  //     if (!res.ok) throw new Error("Error al crear cita.");
-
-  //     showMessage("Cita creada!");
-  //     setTimeout(() => router.push("/view6"), 900);
-  //   } catch (err) {
-  //     console.error(err);
-  //     showMessage("Error al agendar la cita");
-  //   }
-  // };
   const handleFinalize = async () => {
     if (!selectedDate || !selectedTime || !service || !barberId) {
       showMessage("Selecciona fecha y hora.");
@@ -185,11 +122,7 @@ const View5Page: React.FC = () => {
     }
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-
-    // 👉 FECHA LOCAL SIN CONVERSION A UTC
     const fechaHora = `${dateStr}T${selectedTime}:00-05:00`;
-
-    console.log("🕒 Enviando hora local:", fechaHora);
 
     const clientData = JSON.parse(
       localStorage.getItem("abalvi_reserva_cliente") || "{}"
@@ -199,7 +132,7 @@ const View5Page: React.FC = () => {
       clienteId: null,
       barberoId: barberId,
       servicioId: service.id,
-      fechaHora, // 👉 ENVIAMOS HORA LOCAL
+      fechaHora,
       precioFinal: service.price,
       nombreCliente: clientData.nombre || null,
       emailCliente: clientData.correo || null,
@@ -345,25 +278,43 @@ const View5Page: React.FC = () => {
               <p className="text-center text-gray-500">Selecciona una fecha.</p>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {ALL_TIME_SLOTS.filter((slot) =>
-                  availableSlots.includes(slot.value)
-                ).map((slot) => {
-                  const isSelected = selectedTime === slot.value;
 
-                  return (
-                    <button
-                      key={slot.value}
-                      className={`py-3 rounded-lg font-semibold text-sm transition
-                        ${isSelected
-                          ? "bg-black text-white shadow-lg scale-[1.03]"
-                          : "bg-white border border-gray-400 hover:bg-gray-100"
-                        }`}
-                      onClick={() => setSelectedTime(slot.value)}
-                    >
-                      {slot.display}
-                    </button>
-                  );
-                })}
+                {ALL_TIME_SLOTS
+                  .filter((slot) => {
+                    if (!selectedDate) return false;
+
+                    const now = new Date();
+                    const isToday = isSameDay(selectedDate, now);
+
+                    const slotDate = new Date(
+                      `${format(selectedDate, "yyyy-MM-dd")}T${slot.value}:00-05:00`
+                    );
+
+                    const isPast = isToday && slotDate < now;
+
+                    return (
+                      availableSlots.includes(slot.value) &&
+                      !isPast
+                    );
+                  })
+                  .map((slot) => {
+                    const isSelected = selectedTime === slot.value;
+
+                    return (
+                      <button
+                        key={slot.value}
+                        className={`py-3 rounded-lg font-semibold text-sm transition
+                          ${isSelected
+                            ? "bg-black text-white shadow-lg scale-[1.03]"
+                            : "bg-white border border-gray-400 hover:bg-gray-100"
+                          }`}
+                        onClick={() => setSelectedTime(slot.value)}
+                      >
+                        {slot.display}
+                      </button>
+                    );
+                  })}
+
               </div>
             )}
           </div>

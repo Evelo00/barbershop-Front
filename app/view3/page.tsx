@@ -50,10 +50,10 @@ const View3Page: React.FC = () => {
                 const servicesData = await serviceRes.json();
                 const mappedServices: Service[] = servicesData.map((s: any) => ({
                     id: s.id || s._id,
-                    nombre: s.nombre || s.name || 'Servicio sin nombre',
-                    precio: s.precio || s.price || 0,
-                    duracionMinutos: s.duracionMinutos || s.duration_minutes || 30,
-                    categoria: determineCategory(s.nombre || s.name || 'Corte') as ServiceCategory
+                    nombre: s.nombre || s.name || "Servicio sin nombre",
+                    precio: s.precio ?? s.price ?? 0,
+                    duracionMinutos: s.duracionMinutos ?? s.duration_minutes ?? 30,
+                    categoria: determineCategory(s.nombre || s.name || "Corte")
                 }));
                 setServices(mappedServices);
             } catch (err) {
@@ -75,12 +75,15 @@ const View3Page: React.FC = () => {
             id: selectedService.id,
             name: selectedService.nombre,
             price: selectedService.precio,
-            duration: selectedService.duracionMinutos
+            duration: selectedService.duracionMinutos,   // opcional
+            duracionMinutos: selectedService.duracionMinutos   // importante
         }));
         router.push('/view4');
     };
 
-    const filteredServices = services.filter(s => s.categoria === activeCategory);
+    const filteredServices = services
+        .filter(s => s.categoria === activeCategory)
+        .filter(s => s.id !== "00000000-0000-0000-0000-000000000999");
     const categories: ServiceCategory[] = ['CORTES', 'BARBA', 'COMBOS', 'OTROS'];
 
     const FONT_AVENIR = "'Avenir', sans-serif";
@@ -108,7 +111,7 @@ const View3Page: React.FC = () => {
                             onClick={() => setActiveCategory(cat)}
                             className={`text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-md px-3 py-1
         ${activeCategory === cat
-                                    ? 'bg-black text-white'  
+                                    ? 'bg-black text-white'
                                     : 'bg-white text-black hover:bg-black/10 hover:text-black'
                                 }`}
                             style={{ fontFamily: FONT_AVENIR_BLACK }}
