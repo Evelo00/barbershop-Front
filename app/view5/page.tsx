@@ -1,461 +1,377 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-// Reemplazando 'next/navigation' con una implementación nativa de React para el entorno
-const useRouter = () => {
-    return {
-        push: (path: string) => {
-            if (typeof window !== 'undefined') {
-                window.location.href = path;
-            }
-        },
-    };
-};
 import {
-    format,
-    addMonths,
-    subMonths,
-    startOfMonth,
-    endOfMonth,
-    isSameDay,
-    isBefore,
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  isSameDay,
+  isBefore,
 } from "date-fns";
-import { es } from 'date-fns/locale';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { es } from "date-fns/locale";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 interface Service {
-    id: string;
-    name: string;
-    price: number;
-    duration: number;
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
 }
 
 const customColors = {
-    "barber-dark": "#2A2A2A",
-    "barber-black": "#1c1c1c",
+  "barber-dark": "#2A2A2A",
 };
 
+// HORARIOS FIJOS
 const ALL_TIME_SLOTS = [
-    { display: "9:00 am", value: "09:00" },
-    { display: "9:30 am", value: "09:30" },
-    { display: "10:00 am", value: "10:00" },
-    { display: "10:30 am", value: "10:30" },
-    { display: "11:00 am", value: "11:00" },
-    { display: "11:30 am", value: "11:30" },
-    { display: "12:00 pm", value: "12:00" },
-    { display: "12:30 pm", value: "12:30" },
-    { display: "1:00 pm", value: "13:00" },
-    { display: "1:30 pm", value: "13:30" },
-    { display: "2:00 pm", value: "14:00" },
-    { display: "2:30 pm", value: "14:30" },
-    { display: "3:00 pm", value: "15:00" },
-    { display: "3:30 pm", value: "15:30" },
-    { display: "4:00 pm", value: "16:00" },
-    { display: "4:30 pm", value: "16:30" },
-    { display: "5:00 pm", value: "17:00" },
-    { display: "5:30 pm", value: "17:30" },
-    { display: "6:00 pm", value: "18:00" },
-    { display: "6:30 pm", value: "18:30" },
-    { display: "7:00 pm", value: "19:00" },
-    { display: "7:30 pm", value: "19:30" },
-    { display: "8:00 pm", value: "20:00" },
-    { display: "8:30 pm", value: "20:30" },
+  { display: "9:00 am", value: "09:00" },
+  { display: "9:30 am", value: "09:30" },
+  { display: "10:00 am", value: "10:00" },
+  { display: "10:30 am", value: "10:30" },
+  { display: "11:00 am", value: "11:00" },
+  { display: "11:30 am", value: "11:30" },
+  { display: "12:00 pm", value: "12:00" },
+  { display: "12:30 pm", value: "12:30" },
+  { display: "1:00 pm", value: "13:00" },
+  { display: "1:30 pm", value: "13:30" },
+  { display: "2:00 pm", value: "14:00" },
+  { display: "2:30 pm", value: "14:30" },
+  { display: "3:00 pm", value: "15:00" },
+  { display: "3:30 pm", value: "15:30" },
+  { display: "4:00 pm", value: "16:00" },
+  { display: "4:30 pm", value: "16:30" },
+  { display: "5:00 pm", value: "17:00" },
+  { display: "5:30 pm", value: "17:30" },
+  { display: "6:00 pm", value: "18:00" },
+  { display: "6:30 pm", value: "18:30" },
+  { display: "7:00 pm", value: "19:00" },
+  { display: "7:30 pm", value: "19:30" },
+  { display: "8:00 pm", value: "20:00" },
+  { display: "8:30 pm", value: "20:30" },
 ];
 
-
 const View5Page: React.FC = () => {
-    const router = useRouter();
-    const [service, setService] = useState<Service | null>(null);
-    const [barber, setBarber] = useState<string | null>(null);
-    const [barberName, setBarberName] = useState<string | null>(null);
+  const router = { push: (path: string) => (window.location.href = path) };
 
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-    const [selectedTime, setSelectedTime] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState<string | null>(null);
+  const [service, setService] = useState<Service | null>(null);
+  const [barberId, setBarberId] = useState<string | null>(null);
+  const [barberName, setBarberName] = useState<string | null>(null);
 
-    // Estado para saber si la inicialización (carga de localStorage y disponibilidad) ha terminado
-    const [isInitialized, setIsInitialized] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-    const showMessage = (text: string) => {
-        setMessage(text);
-        setTimeout(() => setMessage(null), 3500); // Aumento de tiempo para mensajes de error
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const showMessage = (msg: string) => {
+    setMessage(msg);
+    setTimeout(() => setMessage(null), 2600);
+  };
+
+  // Load service + barber
+  useEffect(() => {
+    const s = localStorage.getItem("abalvi_reserva_servicio");
+    const b = localStorage.getItem("abalvi_reserva_barbero");
+    const bname = localStorage.getItem("abalvi_reserva_barbero_nombre");
+
+    if (s) setService(JSON.parse(s));
+    if (b) setBarberId(b);
+    if (bname) setBarberName(bname);
+  }, []);
+
+  // Fetch available hours
+  const fetchAvailable = async (day: Date) => {
+    if (!service || !barberId) return;
+
+    setLoadingSlots(true);
+    setAvailableSlots([]);
+
+    try {
+      const dateStr = format(day, "yyyy-MM-dd");
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${service.duration}&barberoId=${barberId}`
+      );
+
+      const data = await res.json();
+      setAvailableSlots(data.availableSlots || []);
+    } catch (err) {
+      console.error(err);
+      showMessage("Error cargando horarios.");
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  // Al seleccionar un día actualizamos disponibilidad
+  const handleDaySelect = (day: Date) => {
+    setSelectedDate(day);
+    setSelectedTime(null);
+
+    fetchAvailable(day); // Fetch inmediato
+  };
+
+  const changeMonth = (dir: "prev" | "next") => {
+    setCurrentMonth((prev) =>
+      dir === "prev" ? subMonths(prev, 1) : addMonths(prev, 1)
+    );
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setAvailableSlots([]);
+  };
+
+  // Send appointment
+  const handleFinalize = async () => {
+    if (!selectedDate || !selectedTime || !service || !barberId) {
+      showMessage("Selecciona fecha y hora.");
+      return;
+    }
+
+    const [h, m] = selectedTime.split(":").map(Number);
+
+    // Fecha Bogotá real
+    const localDate = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      h,
+      m,
+      0
+    );
+
+    const fechaHoraUTC = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      h,
+      m,
+      0
+    );
+
+    console.log("🕒 Bogotá local:", fechaHoraUTC.toString());
+    console.log("🌎 UTC:", fechaHoraUTC.toISOString());
+
+    const clientData = JSON.parse(
+      localStorage.getItem("abalvi_reserva_cliente") || "{}"
+    );
+
+    const body = {
+      clienteId: null,
+      barberoId: barberId,
+      servicioId: service.id,
+      fechaHora: fechaHoraUTC.toISOString(),
+      precioFinal: service.price,
+      nombreCliente: clientData.nombre || null,
+      emailCliente: clientData.correo || null,
+      whatsappCliente: clientData.whatsapp || null,
+      notas: null,
     };
 
-    // Fetch de horarios disponibles
-    const fetchAvailableSlots = async (date: Date, currentBarber: string, currentService: Service) => {
-        // Validación extra: no cargar si no hay datos
-        if (!currentService || !currentBarber) return;
 
-        setIsLoading(true);
-        setAvailableSlots([]);
-        try {
-            const dateStr = format(date, "yyyy-MM-dd");
-            // Se asegura de enviar barberId y serviceDuration (ya implementado)
-            const res = await fetch(
-                `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${currentService.duration}&barberoId=${currentBarber}`
-            );
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-            if (!res.ok) {
-                showMessage("Error: No se pudo verificar la disponibilidad. Intenta nuevamente.");
-                return;
+      if (res.status === 409) {
+        showMessage("Ese turno ya está ocupado.");
+        fetchAvailable(selectedDate);
+        return;
+      }
+
+      if (!res.ok) throw new Error("Error al crear cita.");
+
+      showMessage("Cita creada!");
+      setTimeout(() => router.push("/view6"), 900);
+    } catch (err) {
+      console.error(err);
+      showMessage("Error al agendar la cita");
+    }
+  };
+
+  /* -----------------------------------------
+     CALENDARIO
+  ----------------------------------------- */
+  const renderCalendar = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(monthStart);
+    const startIndex = (monthStart.getDay() + 6) % 7;
+    const daysInMonth = monthEnd.getDate();
+
+    const rows: JSX.Element[] = [];
+    let cells: JSX.Element[] = [];
+
+    for (let i = 0; i < startIndex; i++) {
+      cells.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth(),
+        day
+      );
+
+      const disabled = isBefore(date, new Date().setHours(0, 0, 0, 0));
+      const selected = selectedDate && isSameDay(date, selectedDate);
+
+      cells.push(
+        <div
+          key={day}
+          className={`flex items-center justify-center h-10 w-10 text-sm font-semibold rounded-full cursor-pointer transition
+            ${disabled
+              ? "opacity-30 cursor-not-allowed"
+              : selected
+                ? "bg-white text-black shadow-lg"
+                : "text-white hover:bg-gray-700"
             }
+          `}
+          onClick={() => !disabled && handleDaySelect(date)}
+        >
+          {day}
+        </div>
+      );
 
-            const data = await res.json();
-            setAvailableSlots(data.availableSlots || []);
-        } catch (error) {
-            console.error(error);
-            showMessage("Error al obtener horarios disponibles.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // --- EFECTO DE INICIALIZACIÓN Y CARGA DE DATOS ---
-    useEffect(() => {
-        const storedService = localStorage.getItem("abalvi_reserva_servicio");
-        const storedBarberId = localStorage.getItem("abalvi_reserva_barbero");
-        const storedBarberName = localStorage.getItem(
-            "abalvi_reserva_barbero_nombre"
+      if (((date.getDay() + 6) % 7 === 6) || day === daysInMonth) {
+        rows.push(
+          <div key={`week-${rows.length}`} className="grid grid-cols-7 gap-1 mb-1">
+            {cells}
+          </div>
         );
-
-        let s: Service | null = null;
-        let b: string | null = null;
-
-        if (storedService) {
-            s = JSON.parse(storedService);
-            setService(s);
-        }
-        if (storedBarberId) {
-            b = storedBarberId;
-            setBarber(b);
-        }
-        if (storedBarberName) setBarberName(storedBarberName);
-
-        // --- LÓGICA: Cargar slots para HOY si los datos están disponibles ---
-        if (s && b) {
-            const today = new Date();
-            // Poner el selectedDate al día de hoy e iniciar la carga
-            setSelectedDate(today);
-            fetchAvailableSlots(today, b, s);
-        }
-
-        setIsInitialized(true);
-    }, []);
-
-    // Se asegura que handleDaySelect use los estados internos después de la inicialización
-    const handleDaySelect = (day: Date) => {
-        if (!service || !barber) return;
-
-        // Solo seleccionar y cargar slots si no es el día ya seleccionado
-        if (!selectedDate || !isSameDay(day, selectedDate)) {
-            setSelectedDate(day);
-            setSelectedTime(null);
-            fetchAvailableSlots(day, barber, service);
-        }
-    };
-
-    const handleMonthChange = (direction: "prev" | "next") => {
-        setCurrentMonth(
-            direction === "prev" ? subMonths(currentMonth, 1) : addMonths(currentMonth, 1)
-        );
-        setSelectedDate(null); // Deseleccionar día al cambiar de mes
-        setSelectedTime(null);
-        setAvailableSlots([]);
-    };
-
-    const handleFinalize = async () => {
-        if (!selectedDate || !selectedTime || !service || !barber) {
-            showMessage("Selecciona fecha y hora válidas.");
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            const [h, m] = selectedTime.split(":").map(Number);
-            const BOGOTA_UTC_OFFSET = 5; // Colombia/Bogotá es UTC-5
-
-            // Crear la fecha en UTC (el backend recibe y almacena UTC)
-            const fechaHoraUTC = new Date(Date.UTC(
-                selectedDate.getFullYear(),
-                selectedDate.getMonth(),
-                selectedDate.getDate(),
-                h + BOGOTA_UTC_OFFSET, // Ajustar la hora local (09:00 BOG) al UTC (14:00 UTC)
-                m,
-                0,
-                0
-            ));
-
-            // Obtener datos del cliente desde localStorage
-            const storedCliente = JSON.parse(localStorage.getItem('abalvi_reserva_cliente') || '{}');
-
-            const finalAppointment = {
-                clienteId: localStorage.getItem("abalvi_user_id") || null,
-                barberoId: barber,
-                servicioId: service.id,
-                fechaHora: fechaHoraUTC.toISOString(),
-                precioFinal: service.price,
-                duracionMinutos: service.duration,
-                nombreCliente: storedCliente.nombre || null,
-                emailCliente: storedCliente.correo || null,
-                whatsappCliente: storedCliente.whatsapp || null,
-                notas: null,
-            };
-
-            console.log("🚀 Enviando a Backend:", finalAppointment);
-
-            const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(finalAppointment),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                console.error("❌ Error de respuesta del servidor:", res.status, errorData);
-
-                if (res.status === 409) {
-                    showMessage("¡Conflicto! Este turno acaba de ser tomado por otra persona.");
-
-                    // 1. Bloquearlo inmediatamente en UI
-                    if (selectedTime) {
-                        setAvailableSlots(prev => prev.filter(t => t !== selectedTime));
-                        setSelectedTime(null);
-                    }
-
-                    // 2. Sincronizar con backend
-                    if (selectedDate) {
-                        fetchAvailableSlots(selectedDate, barber, service);
-                    }
-
-                    return;
-                }
-
-                throw new Error(errorData.message || `Error al crear cita. Estado: ${res.status}`);
-            }
-
-            showMessage("🎉 Cita agendada con éxito!");
-
-            // Limpiar localStorage
-            localStorage.removeItem("abalvi_reserva_servicio");
-            localStorage.removeItem("abalvi_reserva_barbero");
-            localStorage.removeItem("abalvi_reserva_cliente");
-
-            setTimeout(() => router.push("/view6"), 1000);
-
-        } catch (error) {
-            console.error(error);
-            showMessage(`Hubo un error al agendar la cita: ${(error as Error).message}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-
-    const renderCalendar = () => {
-        const monthStart = startOfMonth(currentMonth);
-        const monthEnd = endOfMonth(monthStart);
-
-        // Ajuste para que la semana empiece el Lunes (1 = Lunes, 0 = Domingo)
-        const startDayIndex = startOfMonth(currentMonth).getDay(); // 0 (Dom) a 6 (Sab)
-        const startDayAdjusted = startDayIndex === 0 ? 6 : startDayIndex - 1; // 0 (Lun) a 6 (Dom)
-
-
-        const totalDays = monthEnd.getDate();
-        const rows: JSX.Element[] = [];
-        let days: JSX.Element[] = [];
-
-        // Días vacíos al inicio del mes
-        for (let i = 0; i < startDayAdjusted; i++) {
-            days.push(<div key={`empty-start-${i}`} className="h-10 w-10" />);
-        }
-
-        // Días del mes
-        for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
-            const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayNum);
-            // Comparar solo el día (hora 00:00) con el día actual (hora actual)
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-
-            const isPast = isBefore(dayDate, todayStart);
-            const isSelected = selectedDate && isSameDay(dayDate, selectedDate);
-
-            // Check if the day is the actual today (for styling)
-            const isToday = isSameDay(dayDate, new Date());
-
-
-            days.push(
-                <div
-                    key={dayDate.toISOString()}
-                    onClick={() => !isPast && handleDaySelect(dayDate)}
-                    className={`flex items-center justify-center cursor-pointer h-10 w-10 text-sm font-semibold transition
-                    ${isPast ? "opacity-30 pointer-events-none" : ""}
-                    ${isSelected ? "bg-white text-black rounded-full shadow-lg" : "hover:bg-gray-700 rounded-full text-white"}
-                    ${isToday && !isSelected && !isPast ? "border-2 border-white" : ""}
-                `}
-                >
-                    {dayNum}
-                </div>
-            );
-
-            // Si es domingo ((dayDate.getDay() + 6) % 7 === 6 en Lunes-Domingo) o el último día del mes
-            if ((dayDate.getDay() + 6) % 7 === 6 || dayNum === totalDays) {
-                rows.push(
-                    <div key={`week-${rows.length}`} className="grid grid-cols-7 gap-1 mb-1">
-                        {days}
-                    </div>
-                );
-                days = [];
-            }
-
-        }
-
-        // Agregar días restantes si el mes no termina en Domingo
-        if (days.length > 0) {
-            // Llenar los espacios vacíos al final de la última semana
-            const remainingEmptySlots = 7 - days.length;
-            for (let i = 0; i < remainingEmptySlots; i++) {
-                days.push(<div key={`empty-end-${i}`} className="h-10 w-10" />);
-            }
-
-            rows.push(
-                <div key={`week-final`} className="grid grid-cols-7 gap-1 mb-1">
-                    {days}
-                </div>
-            );
-        }
-
-
-        const weekDays = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"]; // Empezando el Lunes
-
-        return (
-            <div className="p-6 pb-20 rounded-b-[40px] shadow-xl w-full" style={{ backgroundColor: customColors['barber-dark'] }}>
-                <div className="flex justify-between items-center mb-4">
-                    <p className="text-xs tracking-widest font-light text-gray-400">ABALVI BARBER</p>
-                    <button onClick={() => router.push("/view4")} disabled={isLoading} className="flex items-center text-sm text-gray-400 hover:text-white transition">
-                        <ArrowLeft className="w-3 h-3 mr-1" /> Volver
-                    </button>
-                </div>
-
-                <h2 className="text-2xl font-extrabold text-white mb-6 text-center">ELIGE LA FECHA</h2>
-
-                <div className="flex items-center justify-between mb-4">
-                    <button
-                        onClick={() => handleMonthChange("prev")}
-                        // Deshabilitar el botón si el mes actual es el mismo que el mes de hoy
-                        disabled={isLoading || isSameDay(startOfMonth(currentMonth), startOfMonth(new Date()))}
-                        className="text-white text-2xl p-2 rounded-full hover:bg-gray-700 transition disabled:opacity-50"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <span className="text-white font-bold text-lg tracking-wider">{format(currentMonth, "MMMM yyyy", { locale: es }).toUpperCase()}</span>
-                    <button onClick={() => handleMonthChange("next")} disabled={isLoading} className="text-white text-2xl p-2 rounded-full hover:bg-gray-700 transition">
-                        <ArrowRight className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Días de la semana */}
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                    {weekDays.map((d) => <div key={d} className="text-gray-400 text-center font-semibold text-xs">{d}</div>)}
-                </div>
-
-                {/* Días del mes */}
-                {rows}
-            </div>
-        );
-    };
-
+        cells = [];
+      }
+    }
 
     return (
-        <div className="w-full min-h-screen flex justify-center items-stretch bg-gray-100 sm:p-8">
-            <div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl shadow-2xl relative bg-white min-h-screen sm:min-h-[90vh] sm:rounded-xl">
-
-                {renderCalendar()}
-
-                <div className="relative -top-12 px-6">
-                    <div className="bg-white p-6 rounded-lg shadow-lg">
-                        <h3 className="text-xl font-bold mb-4 text-center" style={{ color: customColors['barber-black'] }}>ELIGE LA HORA</h3>
-
-                        {/* Mostrar carga si está cargando O si no se ha inicializado y no hay slots aún */}
-                        {isLoading || !isInitialized ? (
-                            <p className="text-center text-gray-500">Cargando datos y horarios...</p>
-                        ) : selectedDate && availableSlots.length === 0 ? (
-                            <p className="text-center text-gray-500">No hay horarios disponibles para la fecha seleccionada.</p>
-                        ) : (
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                {ALL_TIME_SLOTS.map((slot) => {
-
-                                    // Normaliza HH:mm (ej: "9:00" → "09:00")
-                                    const normalize = (t: string) =>
-                                        t.length === 4 ? "0" + t : t;
-
-                                    const slotNormalized = normalize(slot.value);
-
-                                    // Normalizar TODO lo que llega del backend
-                                    const availableNormalized = availableSlots.map(normalize);
-
-                                    const isAvailable = availableNormalized.includes(slotNormalized);
-                                    const isSelected = selectedTime === slotNormalized;
-
-                                    return (
-                                        <button
-                                            key={slotNormalized}
-                                            onClick={() => isAvailable && setSelectedTime(slotNormalized)}
-                                            disabled={!isAvailable || isLoading || !selectedDate}
-                                            className={`py-3 rounded-lg font-semibold transition text-sm sm:text-base
-                    ${isSelected
-                                                    ? "bg-black text-white shadow-lg border-2 border-black"
-                                                    : isAvailable
-                                                        ? "bg-white text-black border border-gray-400 hover:bg-gray-100"
-                                                        : "bg-gray-100 text-gray-400 cursor-not-allowed line-through border border-gray-300"
-                                                }`}
-                                        >
-                                            {slot.display}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                        )}
-                        {!selectedDate && isInitialized && ( // Mostrar este mensaje solo si ya terminó la inicialización y no hay fecha seleccionada
-                            <p className="text-center text-gray-500 mt-4">Por favor, selecciona una fecha primero.</p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="px-6 pt-0 text-center relative -top-6">
-                    <p className="text-sm text-gray-600 mb-4">
-                        <span className="font-semibold">Barbero:</span> {barberName} | <span className="font-semibold">Servicio:</span> {service?.name} - ${service?.price?.toLocaleString("es-CO")}
-                    </p>
-                </div>
-
-                <div className="p-6 pt-0 relative -top-6">
-                    <button
-                        onClick={handleFinalize}
-                        disabled={!selectedTime || isLoading}
-                        className="w-full py-3 rounded-lg text-white font-semibold transition disabled:opacity-50"
-                        style={{ backgroundColor: customColors['barber-dark'] }}
-                    >
-                        {isLoading ? "Agendando..." : "Agendar"}
-                    </button>
-                </div>
-            </div>
-
-            {message && (
-                <div
-                    className="fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-white shadow-xl z-50 transition duration-300"
-                    style={{ backgroundColor: customColors['barber-dark'] }}
-                >
-                    {message}
-                </div>
-            )}
+      <div className="p-6 pb-16 rounded-b-[40px]" style={{ background: customColors["barber-dark"] }}>
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-xs tracking-widest text-gray-300">ABALVI BARBER</p>
+          <button
+            onClick={() => router.push("/view4")}
+            className="text-gray-300 text-sm flex items-center hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" /> Volver
+          </button>
         </div>
+
+        <h2 className="text-2xl text-white font-extrabold mb-4 text-center">
+          ELIGE LA FECHA
+        </h2>
+
+        <div className="flex justify-between items-center mb-4">
+          <button
+            onClick={() => changeMonth("prev")}
+            className="text-white text-2xl p-2 hover:bg-gray-700 rounded-full"
+          >
+            <ArrowLeft />
+          </button>
+
+          <span className="text-white font-bold text-lg tracking-wider">
+            {format(currentMonth, "MMMM yyyy", { locale: es }).toUpperCase()}
+          </span>
+
+          <button
+            onClick={() => changeMonth("next")}
+            className="text-white text-2xl p-2 hover:bg-gray-700 rounded-full"
+          >
+            <ArrowRight />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {["LU", "MA", "MI", "JU", "VI", "SA", "DO"].map((d) => (
+            <div key={d} className="text-gray-300 text-center text-xs font-semibold">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {rows}
+      </div>
     );
+  };
+
+  return (
+    <div className="w-full min-h-screen flex justify-center bg-gray-100">
+      <div className="w-full max-w-sm md:max-w-2xl bg-white shadow-xl min-h-screen">
+        {renderCalendar()}
+
+        {/* HORARIOS */}
+        <div className="relative -top-10 px-6">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h3 className="text-xl font-bold text-center mb-4">ELIGE LA HORA</h3>
+
+            {loadingSlots ? (
+              <p className="text-center text-gray-500">Cargando horarios...</p>
+            ) : !selectedDate ? (
+              <p className="text-center text-gray-500">Selecciona una fecha.</p>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {ALL_TIME_SLOTS.filter((slot) =>
+                  availableSlots.includes(slot.value)
+                ).map((slot) => {
+                  const isSelected = selectedTime === slot.value;
+
+                  return (
+                    <button
+                      key={slot.value}
+                      className={`py-3 rounded-lg font-semibold text-sm transition
+                        ${isSelected
+                          ? "bg-black text-white shadow-lg scale-[1.03]"
+                          : "bg-white border border-gray-400 hover:bg-gray-100"
+                        }`}
+                      onClick={() => setSelectedTime(slot.value)}
+                    >
+                      {slot.display}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* INFO */}
+        <div className="px-6 -top-2 relative text-center">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold">Barbero:</span> {barberName} |
+            <span className="font-semibold"> Servicio:</span> {service?.name} – $
+            {service?.price?.toLocaleString("es-CO")}
+          </p>
+        </div>
+
+        {/* BOTÓN FINAL */}
+        <div className="p-6 relative -top-2">
+          <button
+            onClick={handleFinalize}
+            disabled={!selectedTime}
+            className="w-full py-3 rounded-lg text-white font-semibold disabled:opacity-50"
+            style={{ background: customColors["barber-dark"] }}
+          >
+            Agendar
+          </button>
+        </div>
+      </div>
+
+      {message && (
+        <div
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-6 py-3 rounded-full shadow-lg"
+          style={{ background: customColors["barber-dark"] }}
+        >
+          {message}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default View5Page;
