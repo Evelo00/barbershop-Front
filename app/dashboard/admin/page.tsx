@@ -2,57 +2,67 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+
 import {
-    LogOut,
     CalendarDays,
-    Users,
     ChevronLeft,
     ChevronRight,
-    Search,
-    EyeOff,
-    UserX,
     RefreshCw,
-    Plus,
     Menu,
     Clock,
-    DollarSign,
-    CheckCircle,
-    XCircle,
-    User
+    Slash,
+    Plus,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+
 import { Dialog } from "@/components/ui/dialog";
 import { CitaModalContent } from "@/components/cita-modal-content";
+import CreateCitaModal from "@/components/createCitaModal";
 import { useToast } from "@/hooks/use-toast";
-import UserManagementTable from "@/components/user-management-table";
 import { toZonedTime } from "date-fns-tz";
 
-// --- Interfaces ---
 interface Cita {
     id: string;
     barberoId: string;
     clienteId: string | null;
+
+    // Fechas
     fechaHora: string;
+    fechaFin: string;
     duracionMinutos: number;
-    estado: "pendiente" | "confirmada" | "cancelada";
+
+    // Estado
+    estado: "pendiente" | "confirmada" | "cancelada" | "bloqueo";
+
+    // Datos del cliente (externo o registrado)
+    nombreCliente?: string | null;
+    emailCliente?: string | null;
+    whatsappCliente?: string | null;
+
+    // Información adicional
     precioFinal: number;
+    notas?: string | null;
+
+    // Relaciones (cuando haces include en el backend)
     servicioCita?: {
         nombre: string;
         duracion?: number;
         precio?: number;
     };
+
     clienteCita?: {
-        id: string;
         nombre: string;
         apellido: string;
     };
+
     barberoCita?: {
         id: string;
         nombre: string;
         apellido: string;
         avatar?: string | null;
     };
-    fechaLocal?: Date; // <-- hora convertida a Bogotá
+
+    // Fecha convertida a Bogotá
+    fechaLocal?: Date;
 }
 
 interface UserData {
@@ -64,40 +74,44 @@ interface UserData {
     activo: boolean;
     telefono: string;
     avatar?: string | null;
+    silla?: number | null;
 }
 
-// --- Helper para colores de estado ---
-const getStatusClasses = (status: Cita["estado"]) => {
-    switch (status) {
-        case "confirmada":
-            return { bg: "bg-green-600 hover:bg-green-700 border-l-4 border-green-800", icon: <CheckCircle className="w-3 h-3 mr-1" /> };
-        case "cancelada":
-            return { bg: "bg-red-600 hover:bg-red-700 border-l-4 border-red-800", icon: <XCircle className="w-3 h-3 mr-1" /> };
-        case "pendiente":
-        default:
-            return { bg: "bg-amber-500 hover:bg-amber-600 border-l-4 border-amber-700", icon: <Clock className="w-3 h-3 mr-1" /> };
-    }
-};
-
 export default function SuperadminDashboard() {
-    const router = useRouter();
     const { toast } = useToast();
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+    const [isMobile, setIsMobile] = useState(false);
+    const [selectedMobileBarber, setSelectedMobileBarber] = useState<string | null>(null);
 
     const [citas, setCitas] = useState<Cita[]>([]);
     const [users, setUsers] = useState<UserData[]>([]);
     const [selectedCita, setSelectedCita] = useState<Cita | null>(null);
-    const [activeView, setActiveView] = useState<"calendar" | "users">("calendar");
     const [currentDate, setCurrentDate] = useState(new Date());
+
+    const [blockModal, setBlockModal] = useState(false);
+    const [blockBarbero, setBlockBarbero] = useState<UserData | null>(null);
+    const [blockStart, setBlockStart] = useState<string>("08:00");
+    const [blockEnd, setBlockEnd] = useState<string>("09:00");
+
+    const [createModal, setCreateModal] = useState(false);
+    const [servicios, setServicios] = useState<any[]>([]);
 
     const START_HOUR = 8;
     const END_HOUR = 20;
-    const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR);
 
-    // --- Fetch Users ---
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
+
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem("token");
+
             const res = await fetch(`${API_BASE_URL}/api/users`, {
                 headers: {
                     "Content-Type": "application/json",
@@ -105,244 +119,483 @@ export default function SuperadminDashboard() {
                 },
             });
 
-            if (res.status === 401) {
-                toast({ title: "No autorizado", description: "Tu sesión expiró." });
-                router.push("/login");
-                return;
-            }
-
-            if (!res.ok) throw new Error("Error al cargar usuarios.");
-            const data: UserData[] = await res.json();
+            const data = await res.json();
             setUsers(data);
-        } catch (err) {
-            console.error(err);
-            toast({ title: "Error", description: "No se pudieron cargar los usuarios." });
-        }
+        } catch { }
     };
 
-    // --- Fetch Citas ---
+    const fetchServicios = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/services`);
+            const data = await res.json();
+            setServicios(data);
+        } catch { }
+    };
+
     const fetchCitas = async () => {
         try {
             const token = localStorage.getItem("token");
+
             const res = await fetch(`${API_BASE_URL}/api/citas`, {
-                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
             });
-            if (!res.ok) throw new Error("Error al cargar citas.");
+
             const data: Cita[] = await res.json();
 
-            // Mapear barbero y cliente + convertir fecha a Bogotá
-            const citasMapeadas = data.map(cita => {
-                const barbero = users.find(u => u.id === cita.barberoId);
-                const cliente = users.find(u => u.id === cita.clienteId);
+            const mapped = data.map((cita) => {
+                const barbero = users.find((u) => u.id === cita.barberoId);
+                const cliente = users.find((u) => u.id === cita.clienteId);
+
                 return {
                     ...cita,
-                    barberoCita: barbero ? { id: barbero.id, nombre: barbero.nombre, apellido: barbero.apellido, avatar: barbero.avatar } : undefined,
-                    clienteCita: cliente ? { id: cliente.id, nombre: cliente.nombre, apellido: cliente.apellido } : undefined,
+                    barberoCita: barbero
+                        ? {
+                            id: barbero.id,
+                            nombre: barbero.nombre,
+                            apellido: barbero.apellido,
+                            avatar: barbero.avatar,
+                        }
+                        : undefined,
+                    clienteCita: cliente
+                        ? {
+                            nombre: cliente.nombre,
+                            apellido: cliente.apellido,
+                        }
+                        : undefined,
                     fechaLocal: toZonedTime(cita.fechaHora, "America/Bogota"),
                 };
             });
 
-            setCitas(citasMapeadas);
-        } catch (err) {
-            console.error(err);
-            toast({ title: "Error", description: "No se pudieron cargar las citas." });
-        }
+            setCitas(mapped);
+        } catch { }
     };
+
 
     useEffect(() => {
         fetchUsers();
+        fetchServicios();
     }, []);
 
     useEffect(() => {
-        if (users.length > 0) fetchCitas();
-    }, [users.length]);
+        if (users.length > 0) {
+            fetchCitas();
 
-    const barberos = useMemo(() => users.filter(u => u.rol === "barbero" && u.activo), [users]);
+            if (!selectedMobileBarber && users.length > 0) {
+                const first = users.find((u) => u.rol === "barbero" && u.activo);
+                if (first) setSelectedMobileBarber(first.id);
+            }
+        }
+    }, [users]);
+
+
+    const barberos = useMemo(
+        () =>
+            users
+                .filter((u) => u.rol === "barbero" && u.activo)
+                .sort((a, b) => (a.silla ?? 999) - (b.silla ?? 999)),
+        [users]
+    );
+
 
     const citasDelDia = useMemo(() => {
-        return citas.filter(c => {
+        return citas.filter((c) => {
             if (!c.fechaLocal) return false;
-            const fecha = c.fechaLocal;
+            const d = c.fechaLocal;
             return (
-                fecha.getDate() === currentDate.getDate() &&
-                fecha.getMonth() === currentDate.getMonth() &&
-                fecha.getFullYear() === currentDate.getFullYear()
+                d.getDate() === currentDate.getDate() &&
+                d.getMonth() === currentDate.getMonth() &&
+                d.getFullYear() === currentDate.getFullYear()
             );
         });
     }, [citas, currentDate]);
 
-    const getCurrentTimePosition = () => {
-        const now = toZonedTime(new Date(), "America/Bogota");
-        if (now.getDate() !== currentDate.getDate()) return -1;
-        const currentHour = now.getHours();
-        const currentMinutes = now.getMinutes();
-        if (currentHour < START_HOUR || currentHour > END_HOUR) return -1;
-        const pixelsPerHour = 80;
-        return (currentHour - START_HOUR) * pixelsPerHour + (currentMinutes / 60) * pixelsPerHour;
+    const abrirBloqueo = (barbero: UserData) => {
+        setBlockBarbero(barbero);
+        setBlockModal(true);
     };
-    const currentTimeTop = getCurrentTimePosition();
 
-    const handlePrevDay = () => { const prev = new Date(currentDate); prev.setDate(prev.getDate() - 1); setCurrentDate(prev); };
-    const handleNextDay = () => { const next = new Date(currentDate); next.setDate(next.getDate() + 1); setCurrentDate(next); };
-    const handleLogout = () => { localStorage.removeItem("token"); router.push("/login"); };
+    const confirmarBloqueo = async () => {
+        if (!blockBarbero) return;
 
-    const handleStatusChange = async (citaId: string, nuevoEstado: "confirmada" | "cancelada") => {
-        setCitas(prev => prev.map(c => c.id === citaId ? { ...c, estado: nuevoEstado } : c));
-        setSelectedCita(null);
+        const dateStr = currentDate.toLocaleDateString("en-CA");
+
+        const fechaInicio = `${dateStr}T${blockStart}:00-05:00`;
+        const fechaFin = `${dateStr}T${blockEnd}:00-05:00`;
+
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(fechaFin);
+
+        const duracion = (fin.getTime() - inicio.getTime()) / 60000;
+        if (duracion <= 0) return;
+
+        const body = {
+            barberoId: blockBarbero.id,
+            clienteId: null,
+            servicioId: "00000000-0000-0000-0000-000000000999",
+            fechaHora: inicio.toISOString(),
+            duracionMinutos: duracion,
+            precioFinal: 0,
+            estado: "bloqueo",
+        };
+
         try {
-            const token = localStorage.getItem("token");
-            await fetch(`${API_BASE_URL}/api/citas/${citaId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                body: JSON.stringify({ estado: nuevoEstado }),
+            const res = await fetch(`${API_BASE_URL}/api/citas`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
             });
-            await fetchCitas();
-            toast({ title: "Cita Actualizada", description: `Cita ${citaId} marcada como ${nuevoEstado}.`, variant: nuevoEstado === "confirmada" ? "default" : "destructive" });
-        } catch (err) {
-            console.error(err);
-            toast({ title: "Error", description: "No se pudo actualizar la cita en el servidor.", variant: "destructive" });
-        }
+
+            if (res.ok) {
+                setBlockModal(false);
+                fetchCitas();
+            }
+        } catch { }
     };
 
-    const formattedDate = currentDate.toLocaleDateString("es-CO", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+    const format12h = (d: Date) => {
+        let h = d.getHours();
+        const m = d.getMinutes().toString().padStart(2, "0");
+        const ampm = h >= 12 ? "PM" : "AM";
+        h = h % 12 || 12;
+        return `${h}:${m} ${ampm}`;
+    };
 
-    const getAvatar = (barbero: { nombre: string; apellido: string; avatar?: string | null }) =>
-        barbero.avatar
-            ? `${API_BASE_URL}/public/${barbero.avatar}`
-            : `https://ui-avatars.com/api/?name=${barbero.nombre}+${barbero.apellido.split(" ")[0]}&background=1f2937&color=ffffff&bold=true`;
 
     return (
-        <div className="min-h-screen bg-gray-900 font-sans text-white">
+        <div className="min-h-screen bg-white text-gray-900 font-[Avenir]">
+
             {/* HEADER */}
-            <header className="border-b border-gray-700 bg-gray-800 px-6 py-3 flex items-center justify-between shadow-lg sticky top-0 z-50">
-                <div className="flex items-center gap-6">
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700"><Menu className="w-6 h-6" /></Button>
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-2xl font-extrabold text-white tracking-wider">
-                            <CalendarDays className="inline-block w-6 h-6 mr-2 text-primary" />
-                            ADMIN DASHBOARD
-                        </h1>
-                        <span className="text-gray-600">|</span>
-                        <div className="flex items-center gap-3 text-gray-400 text-sm font-semibold uppercase">
-                            <span className="text-lg text-primary">{formattedDate}</span>
-                            <div className="flex gap-1 ml-2">
-                                <button onClick={handlePrevDay} className="hover:bg-gray-700 p-2 rounded-full transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-                                <button onClick={handleNextDay} className="hover:bg-gray-700 p-2 rounded-full transition-colors"><ChevronRight className="w-4 h-4" /></button>
-                            </div>
-                        </div>
-                    </div>
+            <header className="border-b bg-white px-4 py-4 flex items-center justify-between sticky top-0 z-50">
+                <div className="flex items-center gap-3">
+                    <Menu className="w-6 h-6 text-gray-500" />
+
+                    <h1 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5 text-indigo-500" />
+                        Administración
+                    </h1>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="mr-4 flex bg-gray-700 rounded-lg p-1">
-                        <button onClick={() => setActiveView("calendar")} className={`px-4 py-2 text-sm font-semibold rounded-md transition-all flex items-center gap-2 ${activeView === 'calendar' ? 'bg-indigo-600 shadow-md text-white' : 'text-gray-400 hover:text-white hover:bg-gray-600'}`}>
-                            <CalendarDays className="w-4 h-4" /> Calendario
-                        </button>
-                        <button onClick={() => setActiveView("users")} className={`px-4 py-2 text-sm font-semibold rounded-md transition-all flex items-center gap-2 ${activeView === 'users' ? 'bg-indigo-600 shadow-md text-white' : 'text-gray-400 hover:text-white hover:bg-gray-600'}`}>
-                            <Users className="w-4 h-4" /> Usuarios
-                        </button>
-                    </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        onClick={() => setCreateModal(true)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 text-sm md:text-base"
+                    >
+                        <Plus className="w-4 h-4 mr-1" /> Crear
+                    </Button>
 
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700"><Search className="w-5 h-5" /></Button>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700"><EyeOff className="w-5 h-5" /></Button>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700"><UserX className="w-5 h-5" /></Button>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:bg-gray-700" onClick={fetchCitas}><RefreshCw className="w-5 h-5" /></Button>
-                    <Button className="bg-indigo-600 hover:bg-indigo-700 text-white ml-2 h-10 w-10 p-0 rounded-lg shadow-lg"><Plus className="w-6 h-6" /></Button>
-                    <Button variant="ghost" size="icon" className="text-red-400 hover:bg-red-900/50 ml-4" onClick={handleLogout}><LogOut className="w-5 h-5" /></Button>
+                    <Button
+                        onClick={fetchCitas}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 text-sm md:text-base"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                    </Button>
                 </div>
             </header>
 
-            <main className="flex-1 overflow-hidden h-[calc(100vh-74px)]">
-                {activeView === "calendar" && (
-                    <div className="flex flex-col h-full">
-                        {/* BARBER STRIP */}
-                        <div className="flex overflow-x-auto border-b border-gray-700 py-4 px-8 bg-gray-800 shadow-md shrink-0 min-h-[140px] items-center">
-                            <div className="flex gap-8 min-w-full">
-                                {barberos.length === 0 ? (
-                                    <div className="w-full text-center text-gray-500 italic p-4">No hay barberos activos configurados.</div>
-                                ) : (
-                                    barberos.map((barbero) => (
-                                        <div key={barbero.id} className="flex flex-col items-center justify-center min-w-[120px] w-full max-w-[200px] text-center transition-transform hover:scale-105 cursor-pointer">
-                                            <div className="w-20 h-20 bg-gray-600 rounded-full mb-2 overflow-hidden shadow-xl relative">
-                                                <img src={getAvatar(barbero)} alt={barbero.nombre} className="w-full h-full object-cover" />
-                                            </div>
-                                            <h3 className="text-sm font-extrabold text-white uppercase tracking-wider">{barbero.nombre} {barbero.apellido.split(" ")[0]}</h3>
-                                            <p className="text-xs text-indigo-400 font-medium">Barbero</p>
-                                        </div>
-                                    ))
+            {/* FECHA */}
+            <div className="px-4 py-2 flex items-center justify-between text-sm border-b bg-white sticky top-[64px] md:top-[72px] z-40">
+                <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))}>
+                    <ChevronLeft className="w-5 h-5 text-gray-500" />
+                </button>
+
+                <span className="font-medium text-gray-800">
+                    {currentDate.toLocaleDateString("es-CO", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                    })}
+                </span>
+
+                <button onClick={() => setCurrentDate(new Date(currentDate.getTime() + 86400000))}>
+                    <ChevronRight className="w-5 h-5 text-gray-500" />
+                </button>
+            </div>
+
+            {/* SELECTOR COMPACTO DE BARBEROS - MÓVIL */}
+            {isMobile && (
+                <div className="flex gap-2 overflow-x-auto p-2 sticky top-[110px] bg-white z-40 border-b">
+                    {barberos.map((b) => (
+                        <button
+                            key={b.id}
+                            className={`px-3 py-2 rounded-full text-xs font-semibold whitespace-nowrap ${selectedMobileBarber === b.id
+                                ? "bg-indigo-600 text-white"
+                                : "bg-gray-200 text-gray-700"
+                                }`}
+                            onClick={() => setSelectedMobileBarber(b.id)}
+                        >
+                            {b.nombre.split(" ")[0]}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* BARBEROS - DESKTOP */}
+            {!isMobile && (
+                <div className="flex overflow-x-auto border-b bg-white py-3 px-6 pl-20 shadow-sm">
+                    <div className="flex">
+                        {barberos.map((b) => (
+                            <div key={b.id} className="min-w-[140px] text-center relative">
+                                <img
+                                    src={
+                                        b.avatar
+                                            ? `${API_BASE_URL}/public/${b.avatar}`
+                                            : `https://ui-avatars.com/api/?name=${b.nombre}+${b.apellido}&background=EEE&color=555&bold=true`
+                                    }
+                                    className="w-16 h-16 rounded-full mx-auto border shadow-sm"
+                                />
+
+                                <div className="mt-1 font-medium text-sm text-gray-800">
+                                    {b.nombre} {b.apellido?.split(" ")[0]}
+                                </div>
+
+                                <div className="text-xs text-gray-500">Silla {b.silla}</div>
+
+                                <button
+                                    onClick={() => abrirBloqueo(b)}
+                                    className="mt-2 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-full flex items-center gap-1 mx-auto"
+                                >
+                                    <Slash className="w-3 h-3" />
+                                    Bloquear
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* CALENDARIO */}
+            <main className="flex-1 overflow-y-auto relative bg-white">
+                <div className="flex">
+
+                    {/* HORAS */}
+                    <div className="w-14 md:w-20 border-r text-[10px] md:text-xs text-gray-600 pt-4">
+                        {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map((_, i) => {
+                            const hour = START_HOUR + Math.floor(i / 2);
+                            const minute = i % 2 === 0 ? "00" : "30";
+                            return (
+                                <div key={`hr-${i}`} className="h-8 md:h-10 relative border-b">
+                                    <span className="absolute -top-2 left-1">
+                                        {hour}:{minute}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* COLUMNAS */}
+                    <div className="flex-1 flex">
+
+                        {(isMobile
+                            ? barberos.filter((b) => b.id === selectedMobileBarber)
+                            : barberos
+                        ).map((barbero) => (
+                            <div key={barbero.id} className="flex-1 border-r relative">
+
+                                {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map(
+                                    (_, i) => (
+                                        <div
+                                            key={`grid-${barbero.id}-${i}`}
+                                            className="h-8 md:h-10 border-b border-gray-100"
+                                        ></div>
+                                    )
                                 )}
-                            </div>
-                        </div>
 
-                        {/* CALENDARIO GRID */}
-                        <div className="flex-1 overflow-y-auto relative bg-gray-900">
-                            <div className="flex min-w-full">
-                                <div className="flex flex-col w-16 shrink-0 border-r border-gray-700 bg-gray-800 sticky left-0 z-20 text-xs text-gray-400 font-bold pt-0 shadow-lg">
-                                    {hours.map(h => [0, 30].map(m => (
-                                        <div key={`${h}-${m}`} className="h-10 border-b border-gray-700 relative group">
-                                            <span className="absolute -top-2 right-2 bg-gray-800 px-1 transform -translate-y-1/2">{h > 12 ? h - 12 : h}:{String(m).padStart(2, "0")} {h >= 12 ? "pm" : "am"}</span>
-                                        </div>
-                                    )))}
-                                </div>
+                                {citasDelDia
+                                    .filter((c) => c.barberoId === barbero.id)
+                                    .map((cita) => {
+                                        const fecha = cita.fechaLocal!;
+                                        const horaFin = new Date(fecha.getTime() + cita.duracionMinutos * 60000);
 
-                                <div className="flex-1 flex relative">
-                                    {currentTimeTop !== -1 && (
-                                        <div className="absolute left-0 right-0 z-30 border-t-2 border-red-500 pointer-events-none opacity-90" style={{ top: `${currentTimeTop}px` }}>
-                                            <div className="absolute -left-1 -top-[5px] w-2 h-2 bg-red-500 rounded-full"></div>
-                                        </div>
-                                    )}
+                                        const format12h = (d: Date) => {
+                                            let h = d.getHours();
+                                            const m = d.getMinutes().toString().padStart(2, "0");
+                                            const ampm = h >= 12 ? "PM" : "AM";
+                                            h = h % 12 || 12;
+                                            return `${h}:${m} ${ampm}`;
+                                        };
 
-                                    {barberos.map(barbero => (
-                                        <div key={barbero.id} className="flex-1 min-w-[150px] border-r border-gray-700 relative">
-                                            {hours.map(h => [0, 30].map(m => <div key={`${h}-${m}-line`} className="h-10 border-b border-dashed border-gray-800 w-full"></div>))}
+                                        const startMin =
+                                            (fecha.getHours() - START_HOUR) * 60 + fecha.getMinutes();
+                                        const topPx = (startMin / 30) * 40;
+                                        const heightPx = Math.max(
+                                            (cita.duracionMinutos / 30) * 40,
+                                            40
+                                        );
 
-                                            {citasDelDia.filter(c => c.barberoId === barbero.id).map(cita => {
-                                                const fecha = cita.fechaLocal!;
-                                                const startMinutes = (fecha.getHours() - START_HOUR) * 60 + fecha.getMinutes();
-                                                const topPx = (startMinutes / 30) * 40;
-                                                const heightPx = Math.max((cita.duracionMinutos / 30) * 40, 40);
-                                                const status = getStatusClasses(cita.estado);
-                                                const isSmall = heightPx < 50;
+                                        return (
+                                            <div
+                                                key={cita.id}
+                                                onClick={() => setSelectedCita(cita)}
+                                                className={`
+        absolute 
+        left-0 right-0 md:left-1 md:right-1
+        rounded-xl 
+        p-2 
+        cursor-pointer 
+        shadow-sm hover:shadow-md 
+        transition-all duration-150
 
-                                                return (
-                                                    <div key={cita.id} onClick={() => setSelectedCita(cita)}
-                                                        className={`absolute left-2 right-2 rounded-lg px-2 py-1 text-white shadow-lg cursor-pointer transition-transform hover:scale-[1.02] z-40 ${status.bg} overflow-hidden flex flex-col justify-center`}
-                                                        style={{ top: `${topPx}px`, minHeight: heightPx }}>
-                                                        <span className={`font-bold truncate leading-tight ${isSmall ? 'text-[10px]' : 'text-sm'}`}>
-                                                            {status.icon} {cita.clienteCita ? `${cita.clienteCita.nombre} ${cita.clienteCita.apellido}` : "Confirmada"}
-                                                        </span>
-                                                        {!isSmall && (
-                                                            <div className="text-xs opacity-90 truncate leading-tight mt-0.5 flex items-center">
-                                                                <Clock className="w-3 h-3 mr-1" />
-                                                                {fecha.getHours()}:{String(fecha.getMinutes()).padStart(2, '0')} | {cita.servicioCita?.nombre || "Servicio no listado"}
-                                                            </div>
-                                                        )}
+        ${cita.estado === "confirmada"
+                                                        ? "bg-[#0A84FF] text-white border-none"
+                                                        : cita.estado === "cancelada"
+                                                            ? "bg-[#FEE2E2] text-red-700 border border-red-400"
+                                                            : !cita.servicioCita
+                                                                ? "bg-[#E5E7EB] text-gray-800 border border-black"
+                                                                : "bg-white text-gray-800 border border-gray-300"
+                                                    }
+    `}
+                                                style={{
+                                                    top: topPx,
+                                                    height: heightPx,
+                                                    overflowY: "auto",
+                                                    scrollbarWidth: "none",        // Firefox
+                                                }}
+                                            >
+                                                {/* Ocultar scroll en Webkit (Chrome, Safari) */}
+                                                <style jsx>{`
+        div::-webkit-scrollbar {
+            display: none;
+        }
+    `}</style>
+
+                                                {/* HORA */}
+                                                <div className="text-[11px] font-semibold mb-1">
+                                                    {format12h(fecha)} – {format12h(horaFin)}
+                                                </div>
+
+                                                {/* NOMBRE CLIENTE */}
+                                                {cita.nombreCliente && (
+                                                    <div className="text-[12px] font-bold truncate">
+                                                        {cita.nombreCliente}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ))}
-                                </div>
+                                                )}
+
+                                                {/* SERVICIO */}
+                                                {cita.servicioCita && (
+                                                    <div className="text-[11px] opacity-90 truncate">
+                                                        {cita.servicioCita.nombre}
+                                                    </div>
+                                                )}
+
+                                                {/* NOMBRE BARBERO */}
+                                                {cita.barberoCita && (
+                                                    <div className="text-[10px] opacity-80 truncate mt-1">
+                                                        {cita.barberoCita.nombre} {cita.barberoCita.apellido}
+                                                    </div>
+                                                )}
+
+                                                {/* BLOQUEO */}
+                                                {!cita.servicioCita && (
+                                                    <div className="text-[12px] font-bold flex items-center gap-1 mt-1">
+                                                        <Slash className="w-4 h-4" /> BLOQUEO
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </main>
+
+            {/* MODAL DE CITA */}
+            <Dialog open={!!selectedCita} onOpenChange={() => setSelectedCita(null)}>
+                {selectedCita && (
+                    <CitaModalContent
+                        cita={selectedCita}
+                        closeModal={() => setSelectedCita(null)}
+                        onUpdated={fetchCitas}
+                    />
+                )}
+            </Dialog>
+
+            {/* MODAL BLOQUEAR */}
+            {blockModal && blockBarbero && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-xl shadow-xl w-80 max-h-[90vh] overflow-y-auto">
+
+                        <h3 className="text-lg font-bold mb-4 text-gray-800 text-center">
+                            Bloquear agenda de {blockBarbero.nombre}
+                        </h3>
+
+                        <div className="space-y-4">
+
+                            <div>
+                                <label className="text-sm font-semibold">Hora inicio</label>
+                                <select
+                                    className="w-full mt-1 border rounded px-3 py-2"
+                                    value={blockStart}
+                                    onChange={(e) => setBlockStart(e.target.value)}
+                                >
+                                    {Array.from({
+                                        length: (END_HOUR - START_HOUR + 1) * 2,
+                                    }).map((_, i) => {
+                                        const h = START_HOUR + Math.floor(i / 2);
+                                        const m = i % 2 === 0 ? "00" : "30";
+                                        return (
+                                            <option key={`start-${i}`} value={`${h}:${m}`}>
+                                                {h}:{m}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-semibold">Hora fin</label>
+                                <select
+                                    className="w-full mt-1 border rounded px-3 py-2"
+                                    value={blockEnd}
+                                    onChange={(e) => setBlockEnd(e.target.value)}
+                                >
+                                    {Array.from({
+                                        length: (END_HOUR - START_HOUR + 1) * 2,
+                                    }).map((_, i) => {
+                                        const h = START_HOUR + Math.floor(i / 2);
+                                        const m = i % 2 === 0 ? "00" : "30";
+                                        return (
+                                            <option key={`end-${i}`} value={`${h}:${m}`}>
+                                                {h}:{m}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3 mt-4">
+                                <button
+                                    onClick={confirmarBloqueo}
+                                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700"
+                                >
+                                    Bloquear
+                                </button>
+
+                                <button
+                                    onClick={() => setBlockModal(false)}
+                                    className="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300"
+                                >
+                                    Cancelar
+                                </button>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
 
-                {activeView === "users" && (
-                    <div className="container mx-auto p-8 overflow-y-auto h-full bg-gray-900">
-                        <div className="flex items-center gap-3 mb-8 border-b border-gray-700 pb-2">
-                            <h2 className="text-xl font-bold text-white">Usuarios</h2>
-                            <Button className="ml-auto" onClick={fetchUsers}>Actualizar</Button>
-                        </div>
-                        <UserManagementTable users={users} onUserUpdate={fetchUsers} onRefresh={fetchUsers} />
-                    </div>
-                )}
-
-                {/* MODAL CITA */}
-                <Dialog open={!!selectedCita} onOpenChange={() => setSelectedCita(null)}>
-                    {selectedCita && <CitaModalContent cita={selectedCita} closeModal={() => setSelectedCita(null)} />}
-                </Dialog>
-            </main>
+            <CreateCitaModal
+                open={createModal}
+                onClose={() => setCreateModal(false)}
+                onCreated={fetchCitas}
+                barberos={barberos}
+                servicios={servicios}
+                apiUrl={API_BASE_URL || ""}
+            />
         </div>
     );
 }

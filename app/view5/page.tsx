@@ -110,12 +110,10 @@ const View5Page: React.FC = () => {
     }
   };
 
-  // Al seleccionar un día actualizamos disponibilidad
   const handleDaySelect = (day: Date) => {
     setSelectedDate(day);
     setSelectedTime(null);
-
-    fetchAvailable(day); // Fetch inmediato
+    fetchAvailable(day);
   };
 
   const changeMonth = (dir: "prev" | "next") => {
@@ -127,36 +125,20 @@ const View5Page: React.FC = () => {
     setAvailableSlots([]);
   };
 
-  // Send appointment
   const handleFinalize = async () => {
     if (!selectedDate || !selectedTime || !service || !barberId) {
       showMessage("Selecciona fecha y hora.");
       return;
     }
 
-    const [h, m] = selectedTime.split(":").map(Number);
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-    // Fecha Bogotá real
-    const localDate = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      h,
-      m,
-      0
-    );
+    const fechaBogota = new Date(`${dateStr}T${selectedTime}:00-05:00`);
 
-    const fechaHoraUTC = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      h,
-      m,
-      0
-    );
+    const fechaHoraUTC = fechaBogota.toISOString();
 
-    console.log("🕒 Bogotá local:", fechaHoraUTC.toString());
-    console.log("🌎 UTC:", fechaHoraUTC.toISOString());
+    console.log("🕒 Bogotá local:", fechaBogota.toString());
+    console.log("🌎 Enviando UTC:", fechaHoraUTC);
 
     const clientData = JSON.parse(
       localStorage.getItem("abalvi_reserva_cliente") || "{}"
@@ -166,14 +148,13 @@ const View5Page: React.FC = () => {
       clienteId: null,
       barberoId: barberId,
       servicioId: service.id,
-      fechaHora: fechaHoraUTC.toISOString(),
+      fechaHora: fechaHoraUTC,
       precioFinal: service.price,
       nombreCliente: clientData.nombre || null,
       emailCliente: clientData.correo || null,
       whatsappCliente: clientData.whatsapp || null,
       notas: null,
     };
-
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
@@ -198,9 +179,6 @@ const View5Page: React.FC = () => {
     }
   };
 
-  /* -----------------------------------------
-     CALENDARIO
-  ----------------------------------------- */
   const renderCalendar = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
