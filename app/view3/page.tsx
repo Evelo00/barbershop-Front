@@ -52,9 +52,16 @@ const View3Page: React.FC = () => {
                     id: s.id || s._id,
                     nombre: s.nombre || s.name || "Servicio sin nombre",
                     precio: s.precio ?? s.price ?? 0,
-                    duracionMinutos: s.duracionMinutos ?? s.duration_minutes ?? 30,
+
+                    duracionMinutos:
+                        s.duracionMinutos ??
+                        s.duracion ??
+                        s.duration_minutes ??
+                        30,
+
                     categoria: determineCategory(s.nombre || s.name || "Corte")
                 }));
+
                 setServices(mappedServices);
             } catch (err) {
                 console.error(err);
