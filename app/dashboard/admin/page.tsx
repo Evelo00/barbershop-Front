@@ -229,17 +229,17 @@ export default function SuperadminDashboard() {
         const fin = new Date(fechaFin);
 
         const duracion = (fin.getTime() - inicio.getTime()) / 60000;
-        if (duracion <= 0) return;
 
         const body = {
             barberoId: blockBarbero.id,
             clienteId: null,
             servicioId: "00000000-0000-0000-0000-000000000999",
-            fechaHora: inicio.toISOString(),
+            fechaHora: fechaInicio,       // ✔ ENVÍA LOCAL, NO UTC
             duracionMinutos: duracion,
             precioFinal: 0,
             estado: "bloqueo",
         };
+
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/citas`, {

@@ -125,6 +125,59 @@ const View5Page: React.FC = () => {
     setAvailableSlots([]);
   };
 
+  // const handleFinalize = async () => {
+  //   if (!selectedDate || !selectedTime || !service || !barberId) {
+  //     showMessage("Selecciona fecha y hora.");
+  //     return;
+  //   }
+
+  //   const dateStr = format(selectedDate, "yyyy-MM-dd");
+
+  //   const fechaBogota = new Date(`${dateStr}T${selectedTime}:00-05:00`);
+
+  //   const fechaHoraUTC = fechaBogota.toISOString();
+
+  //   console.log("🕒 Bogotá local:", fechaBogota.toString());
+  //   console.log("🌎 Enviando UTC:", fechaHoraUTC);
+
+  //   const clientData = JSON.parse(
+  //     localStorage.getItem("abalvi_reserva_cliente") || "{}"
+  //   );
+
+  //   const body = {
+  //     clienteId: null,
+  //     barberoId: barberId,
+  //     servicioId: service.id,
+  //     fechaHora: fechaHoraUTC,
+  //     precioFinal: service.price,
+  //     nombreCliente: clientData.nombre || null,
+  //     emailCliente: clientData.correo || null,
+  //     whatsappCliente: clientData.whatsapp || null,
+  //     notas: null,
+  //   };
+
+  //   try {
+  //     const res = await fetch(`${API_BASE_URL}/api/citas/public`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(body),
+  //     });
+
+  //     if (res.status === 409) {
+  //       showMessage("Ese turno ya está ocupado.");
+  //       fetchAvailable(selectedDate);
+  //       return;
+  //     }
+
+  //     if (!res.ok) throw new Error("Error al crear cita.");
+
+  //     showMessage("Cita creada!");
+  //     setTimeout(() => router.push("/view6"), 900);
+  //   } catch (err) {
+  //     console.error(err);
+  //     showMessage("Error al agendar la cita");
+  //   }
+  // };
   const handleFinalize = async () => {
     if (!selectedDate || !selectedTime || !service || !barberId) {
       showMessage("Selecciona fecha y hora.");
@@ -133,12 +186,10 @@ const View5Page: React.FC = () => {
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-    const fechaBogota = new Date(`${dateStr}T${selectedTime}:00-05:00`);
+    // 👉 FECHA LOCAL SIN CONVERSION A UTC
+    const fechaHora = `${dateStr}T${selectedTime}:00-05:00`;
 
-    const fechaHoraUTC = fechaBogota.toISOString();
-
-    console.log("🕒 Bogotá local:", fechaBogota.toString());
-    console.log("🌎 Enviando UTC:", fechaHoraUTC);
+    console.log("🕒 Enviando hora local:", fechaHora);
 
     const clientData = JSON.parse(
       localStorage.getItem("abalvi_reserva_cliente") || "{}"
@@ -148,7 +199,7 @@ const View5Page: React.FC = () => {
       clienteId: null,
       barberoId: barberId,
       servicioId: service.id,
-      fechaHora: fechaHoraUTC,
+      fechaHora, // 👉 ENVIAMOS HORA LOCAL
       precioFinal: service.price,
       nombreCliente: clientData.nombre || null,
       emailCliente: clientData.correo || null,
