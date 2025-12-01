@@ -19,10 +19,6 @@ import CreateCitaModal from "@/components/createCitaModal";
 import { useToast } from "@/hooks/use-toast";
 import { toZonedTime } from "date-fns-tz";
 
-/* ============================
-   TYPES
-   ============================ */
-
 interface Cita {
     id: string;
     barberoId: string;
@@ -72,9 +68,6 @@ interface UserData {
     silla?: number | null;
 }
 
-/* ============================
-   COMPONENT
-   ============================ */
 
 export default function SuperadminDashboard() {
     const { toast } = useToast();
@@ -100,9 +93,6 @@ export default function SuperadminDashboard() {
     const START_HOUR = 8;
     const END_HOUR = 20;
 
-    /* ============================
-       RESPONSIVE
-       ============================ */
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
@@ -110,9 +100,6 @@ export default function SuperadminDashboard() {
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
 
-    /* ============================
-       FETCH USERS
-       ============================ */
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -129,9 +116,6 @@ export default function SuperadminDashboard() {
         } catch { }
     };
 
-    /* ============================
-       FETCH SERVICIOS
-       ============================ */
     const fetchServicios = async () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/services`);
@@ -140,9 +124,6 @@ export default function SuperadminDashboard() {
         } catch { }
     };
 
-    /* ============================
-       FETCH CITAS
-       ============================ */
     const fetchCitas = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -199,9 +180,6 @@ export default function SuperadminDashboard() {
         }
     }, [users]);
 
-    /* ============================
-       BARBEROS SORT
-       ============================ */
     const barberos = useMemo(
         () =>
             users
@@ -210,9 +188,6 @@ export default function SuperadminDashboard() {
         [users]
     );
 
-    /* ============================
-       CITAS DEL DÍA
-       ============================ */
     const citasDelDia = useMemo(() => {
         return citas.filter((c) => {
             if (!c.fechaLocal) return false;
@@ -225,9 +200,6 @@ export default function SuperadminDashboard() {
         });
     }, [citas, currentDate]);
 
-    /* ============================
-       BLOQUEO
-       ============================ */
 
     const abrirBloqueo = (barbero: UserData) => {
         setBlockBarbero(barbero);
@@ -271,9 +243,65 @@ export default function SuperadminDashboard() {
         } catch { }
     };
 
-    /* ============================
-       FORMAT HORA
-       ============================ */
+    const crearAlmuerzo = async () => {
+        if (!blockBarbero) return;
+
+        const dateStr = currentDate.toLocaleDateString("en-CA");
+
+        const fechaInicio = `${dateStr}T${blockStart}:00-05:00`;
+
+        const [hStr, mStr] = blockStart.split(":");
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(inicio.getTime() + 40 * 60000);
+
+        const finH = fin.getHours().toString().padStart(2, "0");
+        const finM = fin.getMinutes().toString().padStart(2, "0");
+
+        const fechaFin = `${dateStr}T${finH}:${finM}:00-05:00`;
+
+        const duracion = 40;
+
+        const body = {
+            barberoId: blockBarbero.id,
+            clienteId: null,
+            servicioId: "00000000-0000-0000-0000-000000000999",
+            fechaHora: fechaInicio,
+            fechaFin: fechaFin,
+            duracionMinutos: duracion,
+            precioFinal: 0,
+            estado: "bloqueo",
+            notas: "Almuerzo",
+        };
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/citas`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+
+            if (res.ok) {
+                toast({
+                    title: "Bloqueo de almuerzo creado",
+                    description: `${blockStart} → ${finH}:${finM}`,
+                });
+
+                setBlockModal(false);
+                fetchCitas();
+            } else {
+                toast({
+                    title: "Error al crear bloqueo",
+                    variant: "destructive",
+                });
+            }
+        } catch (err) {
+            console.error("ERROR almuerzo:", err);
+            toast({
+                title: "Error de red o servidor",
+                variant: "destructive",
+            });
+        }
+    };
     const format12h = (d: Date) => {
         let h = d.getHours();
         const m = d.getMinutes().toString().padStart(2, "0");
@@ -281,10 +309,6 @@ export default function SuperadminDashboard() {
         h = h % 12 || 12;
         return `${h}:${m} ${ampm}`;
     };
-
-    /* ============================
-       UI
-       ============================ */
 
     return (
         <div className="min-h-screen bg-white text-gray-900 font-[Avenir]">
@@ -337,9 +361,6 @@ export default function SuperadminDashboard() {
                 </button>
             </div>
 
-            {/* ============================
-                GRID RESPONSIVE DE BARBEROS
-               ============================ */}
             {!isMobile && (
                 <div
                     className="grid border-b bg-white py-4 px-4 shadow-sm"
@@ -380,9 +401,7 @@ export default function SuperadminDashboard() {
                 </div>
             )}
 
-            {/* ============================
-                CALENDARIO (GRID PERFECTO)
-               ============================ */}
+            {/* Calendario */}
             <main className="flex-1 overflow-y-auto relative bg-white">
                 <div
                     className="grid"
@@ -390,7 +409,6 @@ export default function SuperadminDashboard() {
                         gridTemplateColumns: `80px repeat(${barberos.length}, 1fr)`,
                     }}
                 >
-                    {/* HORAS */}
                     <div className="border-r text-[10px] md:text-xs text-gray-600 pt-4">
                         {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map((_, i) => {
                             const hour = START_HOUR + Math.floor(i / 2);
@@ -406,7 +424,6 @@ export default function SuperadminDashboard() {
                         })}
                     </div>
 
-                    {/* COLUMNAS DE BARBEROS */}
                     {barberos.map((barbero) => (
                         <div key={barbero.id} className="border-r relative">
                             {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map(
@@ -514,16 +531,15 @@ export default function SuperadminDashboard() {
             {blockModal && blockBarbero && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-xl shadow-xl w-80 max-h-[90vh] overflow-y-auto">
+
                         <h3 className="text-lg font-bold mb-4 text-gray-800 text-center">
                             Bloquear agenda de {blockBarbero.nombre}
                         </h3>
 
                         <div className="space-y-4">
-                            {/* INICIO */}
+
                             <div>
-                                <label className="text-sm font-semibold">
-                                    Hora inicio
-                                </label>
+                                <label className="text-sm font-semibold">Hora inicio</label>
                                 <select
                                     className="w-full mt-1 border rounded px-3 py-2"
                                     value={blockStart}
@@ -535,10 +551,7 @@ export default function SuperadminDashboard() {
                                         const h = START_HOUR + Math.floor(i / 2);
                                         const m = i % 2 === 0 ? "00" : "30";
                                         return (
-                                            <option
-                                                key={i}
-                                                value={`${h}:${m}`}
-                                            >
+                                            <option key={i} value={`${h}:${m}`}>
                                                 {h}:{m}
                                             </option>
                                         );
@@ -548,9 +561,7 @@ export default function SuperadminDashboard() {
 
                             {/* FIN */}
                             <div>
-                                <label className="text-sm font-semibold">
-                                    Hora fin
-                                </label>
+                                <label className="text-sm font-semibold">Hora fin</label>
                                 <select
                                     className="w-full mt-1 border rounded px-3 py-2"
                                     value={blockEnd}
@@ -562,28 +573,33 @@ export default function SuperadminDashboard() {
                                         const h = START_HOUR + Math.floor(i / 2);
                                         const m = i % 2 === 0 ? "00" : "30";
                                         return (
-                                            <option
-                                                key={i}
-                                                value={`${h}:${m}`}
-                                            >
+                                            <option key={i} value={`${h}:${m}`}>
                                                 {h}:{m}
                                             </option>
                                         );
                                     })}
                                 </select>
                             </div>
+                            <button
+                                onClick={crearAlmuerzo}
+                                className="w-full bg-blue-300 hover:bg-blue-400 text-blue-900 py-2 rounded-lg font-semibold transition"
+                            >
+                                Almuerzo (40 min)
+                            </button>
 
+
+                            {/* ACCIONES */}
                             <div className="flex gap-3 mt-4">
                                 <button
                                     onClick={confirmarBloqueo}
-                                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700"
+                                    className="flex-1 bg-red-300 hover:bg-red-400 text-red-900 py-2 rounded-lg font-semibold"
                                 >
                                     Bloquear
                                 </button>
 
                                 <button
                                     onClick={() => setBlockModal(false)}
-                                    className="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300"
+                                    className="flex-1 bg-gray-200 hover:bg-gray-300 py-2 rounded-lg"
                                 >
                                     Cancelar
                                 </button>
