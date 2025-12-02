@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -16,6 +16,7 @@ import {
 import { Dialog } from "@/components/ui/dialog";
 import { CitaModalContent } from "@/components/cita-modal-content";
 import CreateCitaModal from "@/components/createCitaModal";
+import BloqueoModal from "@/components/bloqueo-modal";
 import { useToast } from "@/hooks/use-toast";
 import { toZonedTime } from "date-fns-tz";
 
@@ -71,12 +72,10 @@ interface UserData {
 
 export default function SuperadminDashboard() {
     const { toast } = useToast();
-
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     const [isMobile, setIsMobile] = useState(false);
     const [selectedMobileBarber, setSelectedMobileBarber] = useState<string | null>(null);
-
     const [citas, setCitas] = useState<Cita[]>([]);
     const [users, setUsers] = useState<UserData[]>([]);
     const [selectedCita, setSelectedCita] = useState<Cita | null>(null);
@@ -84,21 +83,38 @@ export default function SuperadminDashboard() {
 
     const [blockModal, setBlockModal] = useState(false);
     const [blockBarbero, setBlockBarbero] = useState<UserData | null>(null);
-    const [blockStart, setBlockStart] = useState<string>("08:00");
-    const [blockEnd, setBlockEnd] = useState<string>("09:00");
 
     const [createModal, setCreateModal] = useState(false);
     const [servicios, setServicios] = useState<any[]>([]);
 
+    /* Calendario */
     const START_HOUR = 8;
     const END_HOUR = 20;
 
+    const slotRef = useRef<HTMLDivElement | null>(null);
+    const [slotHeight, setSlotHeight] = useState(48);
+
+    const [now, setNow] = useState(new Date());
+
+    // Detectar móvil
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
         window.addEventListener("resize", checkMobile);
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
+
+    // Obtener tamaño real del slot
+    useEffect(() => {
+        if (slotRef.current) setSlotHeight(slotRef.current.getBoundingClientRect().height);
+    }, []);
+
+    // Actualizar reloj cada 30s
+    useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 30000);
+        return () => clearInterval(interval);
+    }, []);
+
 
     const fetchUsers = async () => {
         try {
@@ -113,7 +129,7 @@ export default function SuperadminDashboard() {
 
             const data = await res.json();
             setUsers(data);
-        } catch { }
+        } catch {}
     };
 
     const fetchServicios = async () => {
@@ -121,7 +137,7 @@ export default function SuperadminDashboard() {
             const res = await fetch(`${API_BASE_URL}/api/services`);
             const data = await res.json();
             setServicios(data);
-        } catch { }
+        } catch {}
     };
 
     const fetchCitas = async () => {
@@ -145,24 +161,24 @@ export default function SuperadminDashboard() {
                     ...cita,
                     barberoCita: barbero
                         ? {
-                            id: barbero.id,
-                            nombre: barbero.nombre,
-                            apellido: barbero.apellido,
-                            avatar: barbero.avatar,
-                        }
+                              id: barbero.id,
+                              nombre: barbero.nombre,
+                              apellido: barbero.apellido,
+                              avatar: barbero.avatar,
+                          }
                         : undefined,
                     clienteCita: cliente
                         ? {
-                            nombre: cliente.nombre,
-                            apellido: cliente.apellido,
-                        }
+                              nombre: cliente.nombre,
+                              apellido: cliente.apellido,
+                          }
                         : undefined,
                     fechaLocal: toZonedTime(cita.fechaHora, "America/Bogota"),
                 };
             });
 
             setCitas(mapped);
-        } catch { }
+        } catch {}
     };
 
     useEffect(() => {
@@ -200,77 +216,51 @@ export default function SuperadminDashboard() {
         });
     }, [citas, currentDate]);
 
+    /* Línea roja */
+    const currentTimeTop = useMemo(() => {
+        const today = new Date();
+        if (
+            today.getDate() !== currentDate.getDate() ||
+            today.getMonth() !== currentDate.getMonth() ||
+            today.getFullYear() !== currentDate.getFullYear()
+        )
+            return null;
 
-    const abrirBloqueo = (barbero: UserData) => {
-        setBlockBarbero(barbero);
-        setBlockModal(true);
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const totalMinutes = (hour - START_HOUR) * 60 + minute;
+
+        if (totalMinutes < 0 || hour > END_HOUR) return null;
+
+        return (totalMinutes * slotHeight) / 30;
+    }, [now, currentDate, slotHeight]);
+
+    const format12h = (d: Date) => {
+        let h = d.getHours();
+        const m = d.getMinutes().toString().padStart(2, "0");
+        const ampm = h >= 12 ? "PM" : "AM";
+        h = h % 12 || 12;
+        return `${h}:${m} ${ampm}`;
     };
 
-    const confirmarBloqueo = async () => {
+    const onApplyBloqueo = async (data: {
+        fechaInicio: string;
+        fechaFin: string;
+        duracionMinutos: number;
+        notas?: string;
+    }) => {
         if (!blockBarbero) return;
-
-        const dateStr = currentDate.toLocaleDateString("en-CA");
-
-        const fechaInicio = `${dateStr}T${blockStart}:00-05:00`;
-        const fechaFin = `${dateStr}T${blockEnd}:00-05:00`;
-
-        const inicio = new Date(fechaInicio);
-        const fin = new Date(fechaFin);
-
-        const duracion = (fin.getTime() - inicio.getTime()) / 60000;
 
         const body = {
             barberoId: blockBarbero.id,
             clienteId: null,
             servicioId: "00000000-0000-0000-0000-000000000999",
-            fechaHora: fechaInicio,
-            duracionMinutos: duracion,
+            fechaHora: data.fechaInicio,
+            fechaFin: data.fechaFin,
+            duracionMinutos: data.duracionMinutos,
             precioFinal: 0,
             estado: "bloqueo",
-        };
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/citas`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-
-            if (res.ok) {
-                setBlockModal(false);
-                fetchCitas();
-            }
-        } catch { }
-    };
-
-    const crearAlmuerzo = async () => {
-        if (!blockBarbero) return;
-
-        const dateStr = currentDate.toLocaleDateString("en-CA");
-
-        const fechaInicio = `${dateStr}T${blockStart}:00-05:00`;
-
-        const [hStr, mStr] = blockStart.split(":");
-        const inicio = new Date(fechaInicio);
-        const fin = new Date(inicio.getTime() + 40 * 60000);
-
-        const finH = fin.getHours().toString().padStart(2, "0");
-        const finM = fin.getMinutes().toString().padStart(2, "0");
-
-        const fechaFin = `${dateStr}T${finH}:${finM}:00-05:00`;
-
-        const duracion = 40;
-
-        const body = {
-            barberoId: blockBarbero.id,
-            clienteId: null,
-            servicioId: "00000000-0000-0000-0000-000000000999",
-            fechaHora: fechaInicio,
-            fechaFin: fechaFin,
-            duracionMinutos: duracion,
-            precioFinal: 0,
-            estado: "bloqueo",
-            notas: "Almuerzo",
+            notas: data.notas ?? null,
         };
 
         try {
@@ -282,8 +272,8 @@ export default function SuperadminDashboard() {
 
             if (res.ok) {
                 toast({
-                    title: "Bloqueo de almuerzo creado",
-                    description: `${blockStart} → ${finH}:${finM}`,
+                    title: "Bloqueo creado",
+                    description: `${blockBarbero.nombre} — ${data.notas ?? "bloqueo general"}`,
                 });
 
                 setBlockModal(false);
@@ -294,30 +284,15 @@ export default function SuperadminDashboard() {
                     variant: "destructive",
                 });
             }
-        } catch (err) {
-            console.error("ERROR almuerzo:", err);
-            toast({
-                title: "Error de red o servidor",
-                variant: "destructive",
-            });
-        }
-    };
-    const format12h = (d: Date) => {
-        let h = d.getHours();
-        const m = d.getMinutes().toString().padStart(2, "0");
-        const ampm = h >= 12 ? "PM" : "AM";
-        h = h % 12 || 12;
-        return `${h}:${m} ${ampm}`;
+        } catch {}
     };
 
     return (
         <div className="min-h-screen bg-white text-gray-900 font-[Avenir]">
-
-            {/* HEADER */}
+            {/* HEADER SUPERIOR */}
             <header className="border-b bg-white px-4 py-4 flex items-center justify-between sticky top-0 z-50">
                 <div className="flex items-center gap-3">
                     <Menu className="w-6 h-6 text-gray-500" />
-
                     <h1 className="text-lg md:text-xl font-semibold flex items-center gap-2">
                         <CalendarDays className="w-5 h-5 text-indigo-500" />
                         Administración
@@ -341,7 +316,7 @@ export default function SuperadminDashboard() {
                 </div>
             </header>
 
-            {/* FECHA */}
+            {/* SELECTOR DE FECHA */}
             <div className="px-4 py-2 flex items-center justify-between text-sm border-b bg-white sticky top-[64px] md:top-[72px] z-40">
                 <button onClick={() => setCurrentDate(new Date(currentDate.getTime() - 86400000))}>
                     <ChevronLeft className="w-5 h-5 text-gray-500" />
@@ -364,14 +339,10 @@ export default function SuperadminDashboard() {
             {!isMobile && (
                 <div
                     className="grid border-b bg-white py-4 px-4 shadow-sm"
-                    style={{
-                        gridTemplateColumns: `80px repeat(${barberos.length}, 1fr)`,
-                    }}
+                    style={{ gridTemplateColumns: `80px repeat(${barberos.length}, 1fr)` }}
                 >
-                    {/* Primera columna (vacía para horas) */}
                     <div></div>
 
-                    {/* Columnas dinámicas para barberos */}
                     {barberos.map((b) => (
                         <div key={b.id} className="text-center">
                             <img
@@ -390,7 +361,10 @@ export default function SuperadminDashboard() {
                             <div className="text-xs text-gray-500">Silla {b.silla}</div>
 
                             <button
-                                onClick={() => abrirBloqueo(b)}
+                                onClick={() => {
+                                    setBlockBarbero(b);
+                                    setBlockModal(true);
+                                }}
                                 className="mt-2 text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-full flex items-center gap-1 mx-auto"
                             >
                                 <Slash className="w-3 h-3" />
@@ -401,80 +375,101 @@ export default function SuperadminDashboard() {
                 </div>
             )}
 
-            {/* Calendario */}
+            {/* ============================================================
+               CALENDARIO
+            ============================================================= */}
             <main className="flex-1 overflow-y-auto relative bg-white">
-                <div
-                    className="grid"
-                    style={{
-                        gridTemplateColumns: `80px repeat(${barberos.length}, 1fr)`,
-                    }}
-                >
+
+                {/* ======= Línea roja actual ======= */}
+                {currentTimeTop !== null && (
+                    <>
+                        <div
+                            className="absolute left-0 right-0 z-40 pointer-events-none"
+                            style={{
+                                top: currentTimeTop,
+                                height: "2px",
+                                background: "red",
+                            }}
+                        />
+
+                        <div
+                            className="absolute z-50 pointer-events-none"
+                            style={{
+                                top: currentTimeTop - 4,
+                                left: 72,
+                                width: "10px",
+                                height: "10px",
+                                background: "red",
+                                borderRadius: "50%",
+                            }}
+                        />
+                    </>
+                )}
+
+                <div className="grid" style={{ gridTemplateColumns: `80px repeat(${barberos.length}, 1fr)` }}>
+                    
+                    {/* COLUMNA DE HORAS */}
                     <div className="border-r text-[10px] md:text-xs text-gray-600 pt-4">
                         {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map((_, i) => {
                             const hour = START_HOUR + Math.floor(i / 2);
                             const minute = i % 2 === 0 ? "00" : "30";
 
                             return (
-                                <div key={i} className="h-12 md:h-16 relative border-b">
-                                    <span className="absolute -top-2 left-1">
-                                        {hour}:{minute}
-                                    </span>
+                                <div
+                                    key={i}
+                                    ref={i === 0 ? slotRef : null}
+                                    className="h-12 md:h-16 relative border-b"
+                                >
+                                    <span className="absolute -top-2 left-1">{hour}:{minute}</span>
                                 </div>
                             );
                         })}
                     </div>
 
+                    {/* COLUMNAS DE BARBEROS */}
                     {barberos.map((barbero) => (
                         <div key={barbero.id} className="border-r relative">
-                            {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map(
-                                (_, i) => (
-                                    <div
-                                        key={i}
-                                        className="h-12 md:h-16 border-b border-gray-100"
-                                    ></div>
-                                )
-                            )}
 
-                            {/* CITAS */}
+                            {/* SLOTS VACÍOS */}
+                            {Array.from({ length: (END_HOUR - START_HOUR + 1) * 2 }).map((_, i) => (
+                                <div key={i} className="h-12 md:h-16 border-b border-gray-100"></div>
+                            ))}
+
+                            {/* CITAS / BLOQUEOS */}
                             {citasDelDia
                                 .filter((c) => c.barberoId === barbero.id)
                                 .map((cita) => {
+
                                     const fecha = cita.fechaLocal!;
-                                    const horaFin = new Date(
-                                        fecha.getTime() +
-                                        cita.duracionMinutos * 60000
-                                    );
+                                    const horaFin = new Date(fecha.getTime() + cita.duracionMinutos * 60000);
+
+                                    const pxPerMinute = slotHeight / 30;
 
                                     const startMin =
-                                        (fecha.getHours() - START_HOUR) * 60 +
-                                        fecha.getMinutes();
+                                        (fecha.getHours() - START_HOUR) * 60 + fecha.getMinutes();
 
-                                    const topPx = (startMin / 30) * 48;
-
-                                    const heightPx = Math.max(
-                                        (cita.duracionMinutos / 30) * 48,
-                                        48
-                                    );
+                                    const topPx = startMin * pxPerMinute;
+                                    const heightPx = Math.max(cita.duracionMinutos * pxPerMinute, slotHeight);
 
                                     return (
                                         <div
                                             key={cita.id}
                                             onClick={() => setSelectedCita(cita)}
                                             className={`
-                                                absolute 
-                                                left-0 right-0 md:left-1 md:right-1
-                                                rounded-xl 
-                                                p-2 
-                                                cursor-pointer 
-                                                shadow-sm hover:shadow-md 
-                                                transition-all duration-150
-                                                ${cita.estado === "confirmada"
-                                                    ? "bg-[#0A84FF] text-white"
-                                                    : cita.estado === "cancelada"
+                                                absolute left-0 right-0 md:left-1 md:right-1
+                                                rounded-xl p-2 cursor-pointer shadow-sm 
+                                                hover:shadow-md transition-all duration-150
+
+                                                ${
+                                                    cita.estado === "bloqueo"
+                                                        ? "bg-gray-300 text-gray-900 border border-gray-400"
+                                                        : cita.estado === "confirmada"
+                                                        ? "bg-[#0A84FF] text-white"
+                                                        : cita.estado === "cancelada"
                                                         ? "bg-[#FEE2E2] text-red-700 border border-red-400"
-                                                        : !cita.servicioCita
-                                                            ? "bg-[#E5E7EB] text-gray-800 border border-black"
-                                                            : "bg-white text-gray-800 border border-gray-300"
+                                                        : cita.servicioCita
+                                                        ? "bg-white text-gray-800 border border-gray-300"
+                                                        : "bg-white"
                                                 }
                                             `}
                                             style={{
@@ -484,12 +479,6 @@ export default function SuperadminDashboard() {
                                                 scrollbarWidth: "none",
                                             }}
                                         >
-                                            <style jsx>{`
-                                                div::-webkit-scrollbar {
-                                                    display: none;
-                                                }
-                                            `}</style>
-
                                             <div className="text-[11px] font-semibold mb-1">
                                                 {format12h(fecha)} – {format12h(horaFin)}
                                             </div>
@@ -508,16 +497,14 @@ export default function SuperadminDashboard() {
                                         </div>
                                     );
                                 })}
+
                         </div>
                     ))}
                 </div>
             </main>
 
-            {/* MODAL CITAS */}
-            <Dialog
-                open={!!selectedCita}
-                onOpenChange={() => setSelectedCita(null)}
-            >
+            {/* MODAL DETALLE CITA */}
+            <Dialog open={!!selectedCita} onOpenChange={() => setSelectedCita(null)}>
                 {selectedCita && (
                     <CitaModalContent
                         cita={selectedCita}
@@ -528,87 +515,17 @@ export default function SuperadminDashboard() {
             </Dialog>
 
             {/* MODAL BLOQUEO */}
-            {blockModal && blockBarbero && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-xl shadow-xl w-80 max-h-[90vh] overflow-y-auto">
+            <BloqueoModal
+                open={blockModal}
+                onClose={() => setBlockModal(false)}
+                barbero={blockBarbero}
+                currentDate={currentDate}
+                START_HOUR={START_HOUR}
+                END_HOUR={END_HOUR}
+                onApplyBloqueo={onApplyBloqueo}
+            />
 
-                        <h3 className="text-lg font-bold mb-4 text-gray-800 text-center">
-                            Bloquear agenda de {blockBarbero.nombre}
-                        </h3>
-
-                        <div className="space-y-4">
-
-                            <div>
-                                <label className="text-sm font-semibold">Hora inicio</label>
-                                <select
-                                    className="w-full mt-1 border rounded px-3 py-2"
-                                    value={blockStart}
-                                    onChange={(e) => setBlockStart(e.target.value)}
-                                >
-                                    {Array.from({
-                                        length: (END_HOUR - START_HOUR + 1) * 2,
-                                    }).map((_, i) => {
-                                        const h = START_HOUR + Math.floor(i / 2);
-                                        const m = i % 2 === 0 ? "00" : "30";
-                                        return (
-                                            <option key={i} value={`${h}:${m}`}>
-                                                {h}:{m}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-
-                            {/* FIN */}
-                            <div>
-                                <label className="text-sm font-semibold">Hora fin</label>
-                                <select
-                                    className="w-full mt-1 border rounded px-3 py-2"
-                                    value={blockEnd}
-                                    onChange={(e) => setBlockEnd(e.target.value)}
-                                >
-                                    {Array.from({
-                                        length: (END_HOUR - START_HOUR + 1) * 2,
-                                    }).map((_, i) => {
-                                        const h = START_HOUR + Math.floor(i / 2);
-                                        const m = i % 2 === 0 ? "00" : "30";
-                                        return (
-                                            <option key={i} value={`${h}:${m}`}>
-                                                {h}:{m}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-                            <button
-                                onClick={crearAlmuerzo}
-                                className="w-full bg-blue-300 hover:bg-blue-400 text-blue-900 py-2 rounded-lg font-semibold transition"
-                            >
-                                Almuerzo (40 min)
-                            </button>
-
-
-                            {/* ACCIONES */}
-                            <div className="flex gap-3 mt-4">
-                                <button
-                                    onClick={confirmarBloqueo}
-                                    className="flex-1 bg-red-300 hover:bg-red-400 text-red-900 py-2 rounded-lg font-semibold"
-                                >
-                                    Bloquear
-                                </button>
-
-                                <button
-                                    onClick={() => setBlockModal(false)}
-                                    className="flex-1 bg-gray-200 hover:bg-gray-300 py-2 rounded-lg"
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+            {/* MODAL CREAR CITA */}
             <CreateCitaModal
                 open={createModal}
                 onClose={() => setCreateModal(false)}
