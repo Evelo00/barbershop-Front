@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface UserData {
     id: string;
@@ -41,6 +41,10 @@ export default function BloqueoModal({
 
     const modalRef = useRef<HTMLDivElement>(null);
 
+    /* === ESTADOS CONTROLADOS === */
+    const [startTime, setStartTime] = useState("12:00");
+    const [endTime, setEndTime] = useState("12:10");
+
     /* === CERRAR AL PRESIONAR ESC === */
     useEffect(() => {
         if (!open) return;
@@ -59,7 +63,7 @@ export default function BloqueoModal({
 
     if (!open || !barbero) return null;
 
-    /* === GENERAR HORAS EN INTERVALOS DE 10 MINUTOS === */
+    /* === GENERAR HORARIOS DE 10 MIN === */
     const timeOptions: string[] = [];
     for (let h = START_HOUR; h <= END_HOUR; h++) {
         for (let m = 0; m < 60; m += 10) {
@@ -71,10 +75,9 @@ export default function BloqueoModal({
 
     const dateStr = currentDate.toLocaleDateString("en-CA");
 
-    /* === FUNCIÓN GENERAL DE CREACIÓN === */
-    const createBloqueo = (start: string, end: string, notas?: string) => {
-        const inicioISO = `${dateStr}T${start}:00-05:00`;
-        const finISO = `${dateStr}T${end}:00-05:00`;
+    const createBloqueo = (notas?: string) => {
+        const inicioISO = `${dateStr}T${startTime}:00-05:00`;
+        const finISO = `${dateStr}T${endTime}:00-05:00`;
 
         const duracion =
             (new Date(finISO).getTime() - new Date(inicioISO).getTime()) / 60000;
@@ -89,9 +92,9 @@ export default function BloqueoModal({
         });
     };
 
-    /* === PRESETS === */
-    const createPresetMinutes = (start: string, minutes: number, notas: string) => {
-        const inicioISO = `${dateStr}T${start}:00-05:00`;
+    const createPresetMinutes = (minutes: number, notas: string) => {
+        const inicioISO = `${dateStr}T${startTime}:00-05:00`;
+
         const fin = new Date(inicioISO);
         fin.setMinutes(fin.getMinutes() + minutes);
 
@@ -119,33 +122,33 @@ export default function BloqueoModal({
                     Bloquear agenda de {barbero.nombre}
                 </h3>
 
-                {/* === BLOQUEO GENERAL === */}
+                {/* BLOQUEO GENERAL */}
                 <div className="text-center font-semibold mb-2">BLOQUEO GENERAL</div>
 
                 <div className="flex gap-2 mb-4">
-                    <select id="start" className="w-1/2 border rounded px-2 py-2">
+                    <select
+                        className="w-1/2 border rounded px-2 py-2"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                    >
                         {timeOptions.map((t) => (
                             <option key={t}>{t}</option>
                         ))}
                     </select>
 
-                    <select id="end" className="w-1/2 border rounded px-2 py-2">
+                    <select
+                        className="w-1/2 border rounded px-2 py-2"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                    >
                         {timeOptions.map((t) => (
                             <option key={t}>{t}</option>
                         ))}
                     </select>
                 </div>
 
-                {/* === BOTÓN APLICAR === */}
                 <button
-                    onClick={() => {
-                        const start = (
-                            document.getElementById("start") as HTMLSelectElement
-                        ).value;
-                        const end = (document.getElementById("end") as HTMLSelectElement)
-                            .value;
-                        createBloqueo(start, end, "Bloqueo general");
-                    }}
+                    onClick={() => createBloqueo("Bloqueo general")}
                     className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-semibold mb-4"
                 >
                     APLICAR
@@ -153,31 +156,30 @@ export default function BloqueoModal({
 
                 <hr className="my-4" />
 
-                {/* === PREESTABLECIDOS === */}
+                {/* PRESETS */}
                 <div className="text-center font-semibold mb-2">
                     BLOQUEOS PREESTABLECIDOS
                 </div>
 
-                {/* 40 MIN ALMUERZO */}
+                {/* 40 min almuerzo */}
                 <button
                     className="w-full border rounded-lg py-2 mb-3 font-semibold"
-                    onClick={() => createPresetMinutes("12:00", 40, "Almuerzo")}
+                    onClick={() => createPresetMinutes(40, "Almuerzo")}
                 >
-                    40 MIN ALMUERZO
+                    40 MIN ALMUERZO (desde {startTime})
                 </button>
 
-                {/* 1 HORA / 2 HORAS / JORNADA */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                     <button
                         className="border rounded-lg py-2 font-semibold"
-                        onClick={() => createPresetMinutes("12:00", 60, "Descanso 1h")}
+                        onClick={() => createPresetMinutes(60, "Descanso 1h")}
                     >
                         1 HORA
                     </button>
 
                     <button
                         className="border rounded-lg py-2 font-semibold"
-                        onClick={() => createPresetMinutes("12:00", 120, "Descanso 2h")}
+                        onClick={() => createPresetMinutes(120, "Descanso 2h")}
                     >
                         2 HORAS
                     </button>
@@ -185,14 +187,18 @@ export default function BloqueoModal({
                     <button
                         className="border rounded-lg py-2 font-semibold"
                         onClick={() =>
-                            createBloqueo("08:00", "20:00", "Día completo")
+                            onApplyBloqueo({
+                                fechaInicio: `${dateStr}T${START_HOUR}:00-05:00`,
+                                fechaFin: `${dateStr}T${END_HOUR}:00-05:00`,
+                                duracionMinutos: (END_HOUR - START_HOUR) * 60,
+                                notas: "Jornada completa",
+                            })
                         }
                     >
                         TODA LA JORNADA
                     </button>
                 </div>
 
-                {/* CANCELAR */}
                 <button
                     onClick={onClose}
                     className="w-full bg-gray-200 hover:bg-gray-300 py-2 rounded-lg"

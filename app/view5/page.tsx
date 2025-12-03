@@ -32,17 +32,65 @@ const customColors = {
   "barber-dark": "#2A2A2A",
 };
 
-// GENERACIÓN DE HORAS 15 MIN
-const ALL_TIME_SLOTS: TimeSlot[] = [];
-for (let h = 9; h <= 20; h++) {
-  for (let m of [0, 15, 30, 45]) {
-    const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    const ampmH = h % 12 || 12;
-    const ampm = h < 12 ? "am" : "pm";
-    const display = `${ampmH}:${String(m).padStart(2, "0")} ${ampm}`;
-    ALL_TIME_SLOTS.push({ display, value });
+
+function getScheduleForDay(date: Date) {
+  const day = date.getDay(); // 0=domingo, 1=lun...6=sáb
+
+  if (day === 0) {
+    return {
+      start: 10,   // 10:00 AM
+      end: 18.5,   // 6:30 PM
+    };
   }
+
+  if (day >= 1 && day <= 4) {
+    return {
+      start: 8,    // 8:00 AM
+      end: 19.5,   // 7:30 PM
+    };
+  }
+
+  if (day === 5 || day === 6) {
+    return {
+      start: 8,     // 8:00 AM
+      end: 20.5,    // 8:30 PM
+    };
+  }
+
+  return { start: 8, end: 19.5 };
 }
+
+function generateSlotsFor(date: Date): TimeSlot[] {
+  const { start, end } = getScheduleForDay(date);
+  const slots: TimeSlot[] = [];
+
+  const endHour = Math.floor(end);
+  const endMinute = (end % 1) * 60;
+
+  for (let h = start; h <= endHour; h++) {
+    let minutes = [0, 15, 30, 45];
+
+    if (h === endHour) {
+      minutes = minutes.filter((m) => m <= endMinute);
+    }
+
+    for (let m of minutes) {
+      const hh = String(h).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+
+      const value = `${hh}:${mm}`;
+
+      const displayH = h % 12 || 12;
+      const ampm = h < 12 ? "am" : "pm";
+      const display = `${displayH}:${mm} ${ampm}`;
+
+      slots.push({ display, value });
+    }
+  }
+
+  return slots;
+}
+
 
 const View5Page: React.FC = () => {
   const router = { push: (path: string) => (window.location.href = path) };
@@ -65,7 +113,6 @@ const View5Page: React.FC = () => {
     setTimeout(() => setMessage(null), 2600);
   };
 
-  // Load service + barber
   useEffect(() => {
     const s = localStorage.getItem("abalvi_reserva_servicio");
     const b = localStorage.getItem("abalvi_reserva_barbero");
@@ -76,7 +123,6 @@ const View5Page: React.FC = () => {
     if (bname) setBarberName(bname);
   }, []);
 
-  // Fetch available hours
   const fetchAvailable = async (day: Date) => {
     if (!service || !barberId) return;
 
@@ -93,7 +139,6 @@ const View5Page: React.FC = () => {
       const data = await res.json();
       setAvailableSlots(data.availableSlots || []);
     } catch (err) {
-      console.error(err);
       showMessage("Error cargando horarios.");
     } finally {
       setLoadingSlots(false);
@@ -153,12 +198,11 @@ const View5Page: React.FC = () => {
         return;
       }
 
-      if (!res.ok) throw new Error("Error al crear cita.");
+      if (!res.ok) throw new Error();
 
       showMessage("Cita creada!");
       setTimeout(() => router.push("/view6"), 900);
     } catch (err) {
-      console.error(err);
       showMessage("Error al agendar la cita");
     }
   };
@@ -190,9 +234,10 @@ const View5Page: React.FC = () => {
         <div
           key={day}
           className={`flex items-center justify-center h-10 w-10 text-sm font-semibold rounded-full cursor-pointer transition
-            ${disabled
-              ? "opacity-30 cursor-not-allowed"
-              : selected
+            ${
+              disabled
+                ? "opacity-30 cursor-not-allowed"
+                : selected
                 ? "bg-white text-black shadow-lg"
                 : "text-white hover:bg-gray-700"
             }
@@ -214,7 +259,10 @@ const View5Page: React.FC = () => {
     }
 
     return (
-      <div className="p-6 pb-16 rounded-b-[40px]" style={{ background: customColors["barber-dark"] }}>
+      <div
+        className="p-6 pb-16 rounded-b-[40px]"
+        style={{ background: customColors["barber-dark"] }}
+      >
         <div className="flex justify-between items-center mb-4">
           <p className="text-xs tracking-widest text-gray-300">ABALVI BARBER</p>
           <button
@@ -251,7 +299,10 @@ const View5Page: React.FC = () => {
 
         <div className="grid grid-cols-7 gap-1 mb-2">
           {["LU", "MA", "MI", "JU", "VI", "SA", "DO"].map((d) => (
-            <div key={d} className="text-gray-300 text-center text-xs font-semibold">
+            <div
+              key={d}
+              className="text-gray-300 text-center text-xs font-semibold"
+            >
               {d}
             </div>
           ))}
@@ -265,6 +316,7 @@ const View5Page: React.FC = () => {
   return (
     <div className="w-full min-h-screen flex justify-center bg-gray-100">
       <div className="w-full max-w-sm md:max-w-2xl bg-white shadow-xl min-h-screen">
+
         {renderCalendar()}
 
         {/* HORARIOS */}
@@ -278,11 +330,8 @@ const View5Page: React.FC = () => {
               <p className="text-center text-gray-500">Selecciona una fecha.</p>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-
-                {ALL_TIME_SLOTS
+                {generateSlotsFor(selectedDate)
                   .filter((slot) => {
-                    if (!selectedDate) return false;
-
                     const now = new Date();
                     const isToday = isSameDay(selectedDate, now);
 
@@ -292,10 +341,7 @@ const View5Page: React.FC = () => {
 
                     const isPast = isToday && slotDate < now;
 
-                    return (
-                      availableSlots.includes(slot.value) &&
-                      !isPast
-                    );
+                    return availableSlots.includes(slot.value) && !isPast;
                   })
                   .map((slot) => {
                     const isSelected = selectedTime === slot.value;
@@ -304,17 +350,17 @@ const View5Page: React.FC = () => {
                       <button
                         key={slot.value}
                         className={`py-3 rounded-lg font-semibold text-sm transition
-                          ${isSelected
+                        ${
+                          isSelected
                             ? "bg-black text-white shadow-lg scale-[1.03]"
                             : "bg-white border border-gray-400 hover:bg-gray-100"
-                          }`}
+                        }`}
                         onClick={() => setSelectedTime(slot.value)}
                       >
                         {slot.display}
                       </button>
                     );
                   })}
-
               </div>
             )}
           </div>
