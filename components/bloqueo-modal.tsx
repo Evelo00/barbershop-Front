@@ -19,8 +19,6 @@ interface BloqueoModalProps {
     onClose: () => void;
     barbero: UserData | null;
     currentDate: Date;
-    START_HOUR: number;
-    END_HOUR: number;
     onApplyBloqueo: (data: {
         fechaInicio: string;
         fechaFin: string;
@@ -29,58 +27,90 @@ interface BloqueoModalProps {
     }) => void;
 }
 
+function getScheduleForDay(date: Date) {
+    const day = date.getDay(); // 0 domingo
+
+    if (day === 0) {
+        return {
+            start: 10,
+            end: 19 - 0.5, // cierre real 19:00, última cita 18:30
+        };
+    }
+
+    if (day >= 1 && day <= 4) {
+        return {
+            start: 8,
+            end: 20 - 0.5, // cierre 20:00 → último slot 19:30
+        };
+    }
+
+    if (day === 5 || day === 6) {
+        return {
+            start: 8,
+            end: 21 - 0.5, // cierre 21:00 → último slot 20:30
+        };
+    }
+
+    return { start: 8, end: 19.5 };
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
 export default function BloqueoModal({
     open,
     onClose,
     barbero,
     currentDate,
-    START_HOUR,
-    END_HOUR,
     onApplyBloqueo,
 }: BloqueoModalProps) {
-
     const modalRef = useRef<HTMLDivElement>(null);
 
-    /* === ESTADOS CONTROLADOS === */
+    /* HORARIO REAL DEL DÍA */
+    const { start, end } = getScheduleForDay(currentDate);
+
+    const startHour = Math.floor(start);
+    const endHour = Math.floor(end);
+    const endMinute = Math.round((end % 1) * 60);
+
+    /* ESTADOS */
     const [startTime, setStartTime] = useState("12:00");
     const [endTime, setEndTime] = useState("12:10");
 
-    /* === CERRAR AL PRESIONAR ESC === */
+    /* Cerrar con ESC */
     useEffect(() => {
         if (!open) return;
+        const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+        window.addEventListener("keydown", onEsc);
+        return () => window.removeEventListener("keydown", onEsc);
+    }, [open]);
 
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", handleEsc);
-        return () => window.removeEventListener("keydown", handleEsc);
-    }, [open, onClose]);
-
-    /* === CERRAR CON CLICK AFUERA === */
     const handleBackdropClick = (e: React.MouseEvent) => {
         if (e.target === modalRef.current) onClose();
     };
 
     if (!open || !barbero) return null;
 
-    /* === GENERAR HORARIOS DE 10 MIN === */
     const timeOptions: string[] = [];
-    for (let h = START_HOUR; h <= END_HOUR; h++) {
-        for (let m = 0; m < 60; m += 10) {
-            const hh = h.toString().padStart(2, "0");
-            const mm = m.toString().padStart(2, "0");
-            timeOptions.push(`${hh}:${mm}`);
+
+    for (let h = startHour; h <= endHour; h++) {
+        let minutes = [0, 10, 20, 30, 40, 50];
+
+        if (h === endHour) {
+            minutes = minutes.filter((m) => m <= endMinute);
+        }
+
+        for (let m of minutes) {
+            timeOptions.push(`${pad(h)}:${pad(m)}`);
         }
     }
 
     const dateStr = currentDate.toLocaleDateString("en-CA");
 
-    const createBloqueo = (notas?: string) => {
+        const createBloqueo = (notas?: string) => {
         const inicioISO = `${dateStr}T${startTime}:00-05:00`;
         const finISO = `${dateStr}T${endTime}:00-05:00`;
 
-        const duracion =
-            (new Date(finISO).getTime() - new Date(inicioISO).getTime()) / 60000;
+        const duracion = (new Date(finISO).getTime() - new Date(inicioISO).getTime()) / 60000;
 
         if (duracion <= 0) return;
 
@@ -98,15 +128,30 @@ export default function BloqueoModal({
         const fin = new Date(inicioISO);
         fin.setMinutes(fin.getMinutes() + minutes);
 
-        const finISO = `${dateStr}T${String(fin.getHours()).padStart(2, "0")}:${String(
-            fin.getMinutes()
-        ).padStart(2, "0")}:00-05:00`;
+        const finISO = `${dateStr}T${pad(fin.getHours())}:${pad(fin.getMinutes())}:00-05:00`;
 
         onApplyBloqueo({
             fechaInicio: inicioISO,
             fechaFin: finISO,
             duracionMinutos: minutes,
             notas,
+        });
+    };
+
+    const applyFullDay = () => {
+        const inicio = `${pad(startHour)}:00`;
+        const fin = `${pad(endHour)}:${pad(endMinute)}`;
+
+        const fechaInicio = `${dateStr}T${inicio}:00-05:00`;
+        const fechaFin = `${dateStr}T${fin}:00-05:00`;
+
+        const totalMin = (endHour * 60 + endMinute) - (startHour * 60);
+
+        onApplyBloqueo({
+            fechaInicio,
+            fechaFin,
+            duracionMinutos: totalMin,
+            notas: "Jornada completa",
         });
     };
 
@@ -122,7 +167,7 @@ export default function BloqueoModal({
                     Bloquear agenda de {barbero.nombre}
                 </h3>
 
-                {/* BLOQUEO GENERAL */}
+                {/* BLOQUEO MANUAL */}
                 <div className="text-center font-semibold mb-2">BLOQUEO GENERAL</div>
 
                 <div className="flex gap-2 mb-4">
@@ -157,11 +202,8 @@ export default function BloqueoModal({
                 <hr className="my-4" />
 
                 {/* PRESETS */}
-                <div className="text-center font-semibold mb-2">
-                    BLOQUEOS PREESTABLECIDOS
-                </div>
+                <div className="text-center font-semibold mb-2">BLOQUEOS PREESTABLECIDOS</div>
 
-                {/* 40 min almuerzo */}
                 <button
                     className="w-full border rounded-lg py-2 mb-3 font-semibold"
                     onClick={() => createPresetMinutes(40, "Almuerzo")}
@@ -186,14 +228,7 @@ export default function BloqueoModal({
 
                     <button
                         className="border rounded-lg py-2 font-semibold"
-                        onClick={() =>
-                            onApplyBloqueo({
-                                fechaInicio: `${dateStr}T${START_HOUR}:00-05:00`,
-                                fechaFin: `${dateStr}T${END_HOUR}:00-05:00`,
-                                duracionMinutos: (END_HOUR - START_HOUR) * 60,
-                                notas: "Jornada completa",
-                            })
-                        }
+                        onClick={applyFullDay}
                     >
                         TODA LA JORNADA
                     </button>

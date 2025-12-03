@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Slash } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CreateCitaModalProps {
     open: boolean;
@@ -29,9 +34,14 @@ export default function CreateCitaModal({
     const [newEmail, setNewEmail] = useState("");
     const [newWhatsapp, setNewWhatsapp] = useState("");
     const [newPrecio, setNewPrecio] = useState<number>(0);
-    const [newNotas, setNewNotas] = useState("");
 
-    if (!open) return null;
+    useEffect(() => {
+        if (open) {
+            // Fecha actual
+            const today = new Date().toISOString().slice(0, 10);
+            setNewDate(today);
+        }
+    }, [open]);
 
     const crearCita = async () => {
         if (!newBarbero || !newServicio || !newDate || !newTime) {
@@ -46,10 +56,10 @@ export default function CreateCitaModal({
             servicioId: newServicio,
             fechaHora: fechaCompleta,
             precioFinal: newPrecio,
-            nombreCliente: newNombre,
-            emailCliente: newEmail,
-            whatsappCliente: newWhatsapp,
-            notas: newNotas
+            nombreCliente: newNombre || null,
+            emailCliente: newEmail || null,
+            whatsappCliente: newWhatsapp || null,
+            notas: null
         };
 
         try {
@@ -70,25 +80,20 @@ export default function CreateCitaModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <Dialog open={open} onOpenChange={onClose} >
+            <DialogContent
+                className="max-w-md max-h-[85vh] overflow-y-auto"
+                onInteractOutside={onClose}
+                onEscapeKeyDown={onClose}
+                showCloseButton={false}
+            >
+                <DialogHeader>
+                    <DialogTitle className="text-center text-2xl font-bold">
+                        Crear nueva cita
+                    </DialogTitle>
+                </DialogHeader>
 
-            <div className="
-            bg-white 
-            rounded-2xl 
-            shadow-2xl 
-            w-full 
-            max-w-md 
-            max-h-[85vh] 
-            overflow-y-auto 
-            p-6
-            animate-[fadeIn_0.2s_ease-out]
-        ">
-
-                <h3 className="text-2xl font-bold mb-6 text-center text-gray-900">
-                    Crear nueva cita
-                </h3>
-
-                <div className="space-y-5">
+                <div className="space-y-5 pt-2">
 
                     {/* Barbero */}
                     <div>
@@ -182,27 +187,8 @@ export default function CreateCitaModal({
                         onChange={(e) => setNewWhatsapp(e.target.value)}
                     />
 
-                    <hr className="border-gray-300" />
-
-                    {/* Precio */}
-                    <div>
-                        <label className="text-sm font-semibold text-gray-700">Precio</label>
-                        <input
-                            type="number"
-                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400"
-                            value={newPrecio}
-                            onChange={(e) => setNewPrecio(Number(e.target.value))}
-                        />
-                    </div>
-
-                    {/* Notas */}
-                    <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400"
-                        rows={3}
-                        placeholder="Notas..."
-                        value={newNotas}
-                        onChange={(e) => setNewNotas(e.target.value)}
-                    />
+                    {/* Precio oculto */}
+                    <input type="hidden" value={newPrecio} />
 
                     {/* Botones */}
                     <div className="flex gap-3 pt-4">
@@ -223,7 +209,7 @@ export default function CreateCitaModal({
 
                 </div>
 
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

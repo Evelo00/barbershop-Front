@@ -520,8 +520,6 @@ export default function SuperadminDashboard() {
                 onClose={() => setBlockModal(false)}
                 barbero={blockBarbero}
                 currentDate={currentDate}
-                START_HOUR={START_HOUR}
-                END_HOUR={END_HOUR}
                 onApplyBloqueo={onApplyBloqueo}
             />
 

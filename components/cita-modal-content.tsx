@@ -27,6 +27,14 @@ interface CitaModalContentProps {
   onUpdated?: () => void;
 }
 
+function utcToLocalInput(datetime: string) {
+  const date = new Date(datetime); // JS ya convierte a local
+  const localISO = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+  return localISO;
+}
+
 export function CitaModalContent({
   cita,
   closeModal,
@@ -36,19 +44,13 @@ export function CitaModalContent({
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
-  // Convertir UTC → local
-  const fechaLocal = new Date(cita.fechaHora);
-  fechaLocal.setMinutes(
-    fechaLocal.getMinutes() - fechaLocal.getTimezoneOffset()
-  );
-
   const [form, setForm] = useState({
     nombreCliente: cita.nombreCliente || "",
     emailCliente: cita.emailCliente || "",
     whatsappCliente: cita.whatsappCliente || "",
     precioFinal: cita.precioFinal ?? 0,
     notas: cita.notas || "",
-    fechaHora: fechaLocal.toISOString().slice(0, 16),
+    fechaHora: utcToLocalInput(cita.fechaHora),
   });
 
   const handleChange = (key: string, value: any) => {
@@ -144,6 +146,7 @@ export function CitaModalContent({
   if (!editMode)
     return (
       <DialogContent
+        showCloseButton={false}
         className="
           bg-white rounded-2xl shadow-xl 
           w-full max-w-md max-h-[85vh] 
@@ -155,6 +158,7 @@ export function CitaModalContent({
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex justify-between items-center">
             Detalle de Cita
+
             <div className="flex gap-2">
               <button
                 onClick={() => setEditMode(true)}
@@ -238,6 +242,7 @@ export function CitaModalContent({
 
   return (
     <DialogContent
+      showCloseButton={false}
       className="
         bg-white rounded-2xl shadow-xl 
         w-full max-w-md max-h-[85vh] 
@@ -323,7 +328,7 @@ export function CitaModalContent({
           />
         </div>
 
-        {/* Botón Guardar */}
+        {/* Guardar */}
         <button
           onClick={guardarCambios}
           disabled={loading}
