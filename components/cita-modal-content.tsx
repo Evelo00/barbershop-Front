@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Clock,
   DollarSign,
@@ -24,11 +24,12 @@ import {
 interface CitaModalContentProps {
   cita: any;
   closeModal: () => void;
-  onUpdated?: () => void;
+  onUpdated?: (id?: string) => void;
+  servicios: any[];
 }
 
 function utcToLocalInput(datetime: string) {
-  const date = new Date(datetime); // JS ya convierte a local
+  const date = new Date(datetime);
   const localISO = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -39,6 +40,7 @@ export function CitaModalContent({
   cita,
   closeModal,
   onUpdated,
+  servicios,
 }: CitaModalContentProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
   const [loading, setLoading] = useState(false);
@@ -51,35 +53,60 @@ export function CitaModalContent({
     precioFinal: cita.precioFinal ?? 0,
     notas: cita.notas || "",
     fechaHora: utcToLocalInput(cita.fechaHora),
+    servicioId: cita.servicioCita?.id || null,
+    duracionMinutos: cita.duracionMinutos,
   });
+
+  // obtener servicio actual
+  const servicioActual = servicios.find((s) => s.id === form.servicioId);
+
+  // cambiar valores automáticamente cuando el servicio cambia
+  const handleServicioChange = (id: string) => {
+    const selected = servicios.find((s) => s.id === id);
+
+    if (selected) {
+      setForm((prev) => ({
+        ...prev,
+        servicioId: id,
+        precioFinal: selected.precio,
+        duracionMinutos: selected.duracion,
+      }));
+    }
+  };
 
   const handleChange = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const guardarCambios = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
+const guardarCambios = async () => {
+  setLoading(true);
+  try {
+    const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(form),
-      });
+    const body = {
+      ...form,
+    };
 
-      if (!res.ok) throw new Error("No autorizado");
+    const res = await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
 
-      onUpdated?.();
-      closeModal();
-    } catch {
-      alert("Error guardando cambios.");
-    }
-    setLoading(false);
-  };
+    if (!res.ok) throw new Error("No autorizado");
+
+    // 🔥 Le paso el ID de la cita actualizada
+    onUpdated?.(cita.id);
+    closeModal();
+  } catch {
+    alert("Error guardando cambios.");
+  }
+  setLoading(false);
+};
+
 
   const cancelarCita = async () => {
     if (!confirm("¿Cancelar esta cita?")) return;
@@ -145,16 +172,7 @@ export function CitaModalContent({
 
   if (!editMode)
     return (
-      <DialogContent
-        showCloseButton={false}
-        className="
-          bg-white rounded-2xl shadow-xl 
-          w-full max-w-md max-h-[85vh] 
-          overflow-y-auto p-6
-          animate-[fadeIn_0.2s_ease-out]
-          font-[Avenir]
-        "
-      >
+      <DialogContent className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 font-[Avenir]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex justify-between items-center">
             Detalle de Cita
@@ -241,16 +259,7 @@ export function CitaModalContent({
     );
 
   return (
-    <DialogContent
-      showCloseButton={false}
-      className="
-        bg-white rounded-2xl shadow-xl 
-        w-full max-w-md max-h-[85vh] 
-        overflow-y-auto p-6
-        animate-[fadeIn_0.2s_ease-out]
-        font-[Avenir]
-      "
-    >
+    <DialogContent className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 font-[Avenir]">
       <DialogHeader>
         <DialogTitle className="text-xl font-bold flex justify-between items-center">
           Editar Cita
@@ -264,6 +273,23 @@ export function CitaModalContent({
       </DialogHeader>
 
       <div className="space-y-5 py-2 text-gray-800">
+
+        {/* Servicio */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700">Servicio</label>
+          <select
+            className="w-full border mt-1 rounded-lg px-3 py-2"
+            value={form.servicioId || ""}
+            onChange={(e) => handleServicioChange(e.target.value)}
+          >
+            <option value="">Seleccione un servicio</option>
+            {servicios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nombre} — {s.duracion} min / ${s.precio}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Fecha */}
         <div>
@@ -284,21 +310,21 @@ export function CitaModalContent({
 
           <input
             type="text"
-            className="w-full border rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-indigo-400"
+            className="w-full border rounded-lg px-3 py-2 mt-1"
             value={form.nombreCliente}
             onChange={(e) => handleChange("nombreCliente", e.target.value)}
           />
 
           <input
             type="email"
-            className="w-full border rounded-lg px-3 py-2 mt-2 focus:ring-2 focus:ring-indigo-400"
+            className="w-full border rounded-lg px-3 py-2 mt-2"
             value={form.emailCliente}
             onChange={(e) => handleChange("emailCliente", e.target.value)}
           />
 
           <input
-            type="text"
-            className="w-full border rounded-lg px-3 py-2 mt-2 focus:ring-2 focus:ring-indigo-400"
+            type="tel"
+            className="w-full border rounded-lg px-3 py-2 mt-2"
             value={form.whatsappCliente}
             onChange={(e) => handleChange("whatsappCliente", e.target.value)}
           />
@@ -309,7 +335,7 @@ export function CitaModalContent({
           <label className="text-sm font-semibold text-gray-700">Precio</label>
           <input
             type="number"
-            className="w-full border rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-indigo-400"
+            className="w-full border rounded-lg px-3 py-2 mt-1"
             value={form.precioFinal}
             onChange={(e) =>
               handleChange("precioFinal", Number(e.target.value))
@@ -321,14 +347,14 @@ export function CitaModalContent({
         <div>
           <label className="text-sm font-semibold text-gray-700">Notas</label>
           <textarea
-            className="w-full border rounded-lg px-3 py-2 mt-1 focus:ring-2 focus:ring-indigo-400"
             rows={3}
+            className="w-full border rounded-lg px-3 py-2 mt-1"
             value={form.notas}
             onChange={(e) => handleChange("notas", e.target.value)}
           />
         </div>
 
-        {/* Guardar */}
+        {/* BOTÓN GUARDAR */}
         <button
           onClick={guardarCambios}
           disabled={loading}
