@@ -23,9 +23,11 @@ interface Cita {
   id: string;
   barberoId: string;
   clienteId: string | null;
+
   fechaHora: string;
   fechaFin: string;
   duracionMinutos: number;
+
   estado: "pendiente" | "confirmada" | "cancelada" | "bloqueo";
 
   nombreCliente?: string | null;
@@ -36,11 +38,18 @@ interface Cita {
   notas?: string | null;
 
   servicioCita?: {
-    id?: string;
+    id: string;
     nombre: string;
-    duracion?: number;
-    precio?: number;
+    precio: number;
+    duracionMinutos: number;
   };
+
+  serviciosCita?: {
+    id: string;
+    nombre: string;
+    precio: number;
+    duracionMinutos: number;
+  }[];
 
   clienteCita?: {
     nombre: string;
@@ -132,8 +141,8 @@ export default function SuperadminDashboard() {
       const normalized = Array.isArray(data)
         ? data
         : Array.isArray(data.users)
-        ? data.users
-        : [];
+          ? data.users
+          : [];
 
       setUsers(normalized);
     } catch {
@@ -150,8 +159,8 @@ export default function SuperadminDashboard() {
       const normalized = Array.isArray(data)
         ? data
         : Array.isArray(data.services)
-        ? data.services
-        : [];
+          ? data.services
+          : [];
 
       setServicios(normalized);
     } catch {
@@ -179,7 +188,11 @@ export default function SuperadminDashboard() {
 
         return {
           ...cita,
-          servicioCita: cita.servicioCita,
+          serviciosCita: Array.isArray(cita.serviciosCita)
+            ? cita.serviciosCita
+            : cita.servicioCita
+              ? [cita.servicioCita]
+              : [],
           barberoCita: barbero || undefined,
           clienteCita: cliente || undefined,
 
@@ -198,13 +211,11 @@ export default function SuperadminDashboard() {
     }
   };
 
-  /* Load inicial */
   useEffect(() => {
     fetchUsers();
     fetchServicios();
   }, []);
 
-  /* Cargar citas cuando ya tenemos usuarios */
   useEffect(() => {
     if (users.length > 0) {
       fetchCitas();
@@ -289,9 +300,8 @@ export default function SuperadminDashboard() {
       if (res.ok) {
         toast({
           title: "Bloqueo creado",
-          description: `${blockBarbero.nombre} — ${
-            data.notas ?? "bloqueo general"
-          }`,
+          description: `${blockBarbero.nombre} — ${data.notas ?? "bloqueo general"
+            }`,
         });
 
         setBlockModal(false);
@@ -302,7 +312,7 @@ export default function SuperadminDashboard() {
           variant: "destructive",
         });
       }
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -502,16 +512,15 @@ export default function SuperadminDashboard() {
                         rounded-xl p-2 cursor-pointer shadow-sm 
                         hover:shadow-md transition-all duration-150
 
-                        ${
-                          cita.estado === "bloqueo"
-                            ? "bg-gray-300 text-gray-900 border border-gray-400"
-                            : cita.estado === "confirmada"
+                        ${cita.estado === "bloqueo"
+                          ? "bg-gray-300 text-gray-900 border border-gray-400"
+                          : cita.estado === "confirmada"
                             ? "bg-[#0A84FF] text-white"
                             : cita.estado === "cancelada"
-                            ? "bg-[#FEE2E2] text-red-700 border border-red-400"
-                            : cita.servicioCita
-                            ? "bg-white text-gray-800 border border-gray-300"
-                            : "bg-white"
+                              ? "bg-[#FEE2E2] text-red-700 border border-red-400"
+                              : cita.serviciosCita
+                                ? "bg-white text-gray-800 border border-gray-300"
+                                : "bg-white"
                         }
                       `}
                       style={{
@@ -525,15 +534,26 @@ export default function SuperadminDashboard() {
                         {format12h(fecha)} – {format12h(horaFin)}
                       </div>
 
+                      <div className="text-[11px] font-semibold mb-1 truncate">
+                        {cita.duracionMinutos} min
+                      </div>
+
                       {cita.nombreCliente && (
                         <div className="text-[12px] font-bold truncate">
                           {cita.nombreCliente}
                         </div>
                       )}
 
-                      {cita.servicioCita && (
-                        <div className="text-[11px] opacity-90 truncate">
-                          {cita.servicioCita.nombre}
+                      {cita.serviciosCita && cita.serviciosCita.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {cita.serviciosCita.map((s) => (
+                            <div
+                              key={s.id}
+                              className="text-[10px] opacity-90 leading-tight truncate"
+                            >
+                              • {s.nombre}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -546,6 +566,7 @@ export default function SuperadminDashboard() {
 
       {/* MODAL DETALLE CITA */}
       <Dialog
+        modal={false}
         open={!!selectedCita}
         onOpenChange={() => setSelectedCita(null)}
       >
@@ -571,23 +592,27 @@ export default function SuperadminDashboard() {
       </Dialog>
 
       {/* MODAL BLOQUEO */}
-      <BloqueoModal
-        open={blockModal}
-        onClose={() => setBlockModal(false)}
-        barbero={blockBarbero}
-        currentDate={currentDate}
-        onApplyBloqueo={onApplyBloqueo}
-      />
+      <Dialog modal={false} open={blockModal} onOpenChange={() => setBlockModal(false)}>
+        <BloqueoModal
+          open={blockModal}
+          onClose={() => setBlockModal(false)}
+          barbero={blockBarbero}
+          currentDate={currentDate}
+          onApplyBloqueo={onApplyBloqueo}
+        />
+      </Dialog>
 
       {/* MODAL CREAR CITA */}
-      <CreateCitaModal
-        open={createModal}
-        onClose={() => setCreateModal(false)}
-        onCreated={fetchCitas}
-        barberos={barberos}
-        servicios={servicios}
-        apiUrl={API_BASE_URL || ""}
-      />
+      <Dialog modal={false} open={createModal} onOpenChange={setCreateModal}>
+        <CreateCitaModal
+          open={createModal}
+          onClose={() => setCreateModal(false)}
+          onCreated={fetchCitas}
+          barberos={barberos}
+          servicios={servicios}
+          apiUrl={API_BASE_URL || ""}
+        />
+      </Dialog>
     </div>
   );
 }

@@ -4,15 +4,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Clock,
   DollarSign,
   User,
   Calendar,
-  Tag,
   Mail,
   Smartphone,
   XCircle,
@@ -21,6 +21,19 @@ import {
   Check,
 } from "lucide-react";
 
+interface ServicioCita {
+  id: string;
+  servicioId: string;
+  precio: number;
+  duracion: number;
+  servicio?: {
+    id: string;
+    nombre: string;
+    duracion: number;
+    precio: number;
+  };
+}
+
 interface CitaModalContentProps {
   cita: any;
   closeModal: () => void;
@@ -28,12 +41,17 @@ interface CitaModalContentProps {
   servicios: any[];
 }
 
-function utcToLocalInput(datetime: string) {
-  const date = new Date(datetime);
-  const localISO = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-  return localISO;
+/* 🔥 FIX PRINCIPAL: convertir UTC → Bogotá sin duplicar offset */
+function toLocalDatetimeInput(utcString: string) {
+  const date = new Date(utcString);
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+
+  return `${y}-${m}-${d}T${hh}:${mm}`;
 }
 
 export function CitaModalContent({
@@ -46,72 +64,75 @@ export function CitaModalContent({
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
+  const [localServicios, setLocalServicios] = useState<ServicioCita[]>(
+    cita.servicios || []
+  );
+
   const [form, setForm] = useState({
     nombreCliente: cita.nombreCliente || "",
     emailCliente: cita.emailCliente || "",
     whatsappCliente: cita.whatsappCliente || "",
     precioFinal: cita.precioFinal ?? 0,
     notas: cita.notas || "",
-    fechaHora: utcToLocalInput(cita.fechaHora),
-    servicioId: cita.servicioCita?.id || null,
+    /* 🔥 FECHA/HORA SIN DESFASAR */
+    fechaHora: toLocalDatetimeInput(cita.fechaHora),
     duracionMinutos: cita.duracionMinutos,
   });
-
-  // obtener servicio actual
-  const servicioActual = servicios.find((s) => s.id === form.servicioId);
-
-  // cambiar valores automáticamente cuando el servicio cambia
-  const handleServicioChange = (id: string) => {
-    const selected = servicios.find((s) => s.id === id);
-
-    if (selected) {
-      setForm((prev) => ({
-        ...prev,
-        servicioId: id,
-        precioFinal: selected.precio,
-        duracionMinutos: selected.duracion,
-      }));
-    }
-  };
 
   const handleChange = (key: string, value: any) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-const guardarCambios = async () => {
-  setLoading(true);
-  try {
-    const token = localStorage.getItem("token");
+  const recalcTotals = (items: ServicioCita[]) => {
+    const totalPrecio = items.reduce((sum, s) => sum + s.precio, 0);
+    const totalDur = items.reduce((sum, s) => sum + s.duracion, 0);
 
-    const body = {
-      ...form,
-    };
+    setForm((prev) => ({
+      ...prev,
+      precioFinal: totalPrecio,
+      duracionMinutos: totalDur,
+    }));
+  };
 
-    const res = await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(body),
-    });
+  const guardarCambios = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
 
-    if (!res.ok) throw new Error("No autorizado");
+      const payload = {
+        ...form,
+        /* Enviar servicios en formato correcto */
+        servicios: localServicios.map((s) => ({
+          servicioId: s.servicioId ?? s.servicio?.id,
+          precio: s.precio,
+          duracion: s.duracion,
+        })),
+      };
 
-    // 🔥 Le paso el ID de la cita actualizada
-    onUpdated?.(cita.id);
-    closeModal();
-  } catch {
-    alert("Error guardando cambios.");
-  }
-  setLoading(false);
-};
+      const res = await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
 
+      if (!res.ok) throw new Error("Error actualizando cita");
+
+      onUpdated?.(cita.id);
+      closeModal();
+    } catch (err) {
+      console.error("🔥 Error actualizar cita:", err);
+      alert("Error actualizando cita");
+    }
+    setLoading(false);
+  };
 
   const cancelarCita = async () => {
     if (!confirm("¿Cancelar esta cita?")) return;
-    setLoading(true);
 
+    setLoading(true);
     try {
       const token = localStorage.getItem("token");
 
@@ -129,7 +150,6 @@ const guardarCambios = async () => {
     } catch {
       alert("Error cancelando cita.");
     }
-
     setLoading(false);
   };
 
@@ -137,30 +157,27 @@ const guardarCambios = async () => {
     if (!confirm("¿Eliminar esta cita DEFINITIVAMENTE?")) return;
 
     setLoading(true);
-
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
+      await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!res.ok) throw new Error("No autorizado");
-
       onUpdated?.();
       closeModal();
     } catch {
       alert("Error eliminando cita.");
     }
-
     setLoading(false);
   };
 
+  /* 🔥 HORAS EN MODAL VIEW 100% CORRECTAS */
   const inicio = new Date(cita.fechaHora);
-  const fin = new Date(cita.fechaFin);
+  const fin = new Date(inicio.getTime() + cita.duracionMinutos * 60000);
 
   const format12 = (d: Date) => {
     let h = d.getHours();
@@ -170,13 +187,16 @@ const guardarCambios = async () => {
     return `${h}:${m} ${ampm}`;
   };
 
+  /* =========================== VIEW MODE ============================== */
   if (!editMode)
     return (
-      <DialogContent className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 font-[Avenir]">
+      <DialogContent
+        showCloseButton={false}
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 font-[Avenir]"
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex justify-between items-center">
             Detalle de Cita
-
             <div className="flex gap-2">
               <button
                 onClick={() => setEditMode(true)}
@@ -184,14 +204,12 @@ const guardarCambios = async () => {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-
               <button
                 onClick={cancelarCita}
                 className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200"
               >
                 <XCircle className="w-4 h-4" />
               </button>
-
               <button
                 onClick={eliminarCita}
                 className="p-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
@@ -200,27 +218,36 @@ const guardarCambios = async () => {
               </button>
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Información detallada de la cita seleccionada.
+          </DialogDescription>
         </DialogHeader>
 
+        {/* SERVICIOS */}
         <div className="space-y-5 py-2 text-gray-800">
-          <div className="flex justify-between items-center border-b pb-2">
-            <h3 className="text-lg font-semibold">
-              {cita.servicioCita?.nombre || "Servicio no disponible"}
-            </h3>
+          <div className="border-b pb-3">
+            <h3 className="text-lg font-semibold mb-2">Servicios</h3>
 
-            <span
-              className={`px-3 py-1 text-xs rounded-full font-semibold ${
-                cita.estado === "confirmada"
-                  ? "bg-green-100 text-green-700"
-                  : cita.estado === "cancelada"
-                  ? "bg-red-100 text-red-700"
-                  : "bg-gray-200 text-gray-800"
-              }`}
-            >
-              {cita.estado}
-            </span>
+            {localServicios.length > 0 ? (
+              <div className="space-y-2">
+                {localServicios.map((s) => (
+                  <div
+                    key={s.id}
+                    className="px-3 py-2 rounded-lg bg-gray-100 border text-sm flex flex-col"
+                  >
+                    <span className="font-semibold">{s.servicio?.nombre}</span>
+                    <span className="text-gray-600 text-xs">
+                      {s.duracion} min — ${s.precio.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No hay servicios asociados</p>
+            )}
           </div>
 
+          {/* INFO */}
           <div className="grid grid-cols-[25px_1fr] text-sm gap-y-4">
             <User className="text-blue-600 w-5 h-5" />
             <p>{cita.nombreCliente || "Cliente externo"}</p>
@@ -242,24 +269,25 @@ const guardarCambios = async () => {
 
             <Clock className="text-blue-600 w-5 h-5" />
             <p>
-              {format12(inicio)} - {format12(fin)}{" "}
+              {format12(inicio)} – {format12(fin)}{" "}
               <span className="opacity-60 ml-1">
-                ({cita.duracionMinutos} min)
+                ({form.duracionMinutos} min)
               </span>
             </p>
 
             <DollarSign className="text-blue-600 w-5 h-5" />
-            <p>${cita.precioFinal?.toLocaleString("es-CO")}</p>
-
-            <Tag className="text-blue-600 w-5 h-5" />
-            <p className="font-mono text-xs">{cita.id}</p>
+            <p>${form.precioFinal.toLocaleString("es-CO")}</p>
           </div>
         </div>
       </DialogContent>
     );
 
+  /* ========================== EDIT MODE ============================== */
   return (
-    <DialogContent className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 font-[Avenir]">
+    <DialogContent
+      showCloseButton={false}
+      className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-6 font-[Avenir]"
+    >
       <DialogHeader>
         <DialogTitle className="text-xl font-bold flex justify-between items-center">
           Editar Cita
@@ -270,69 +298,135 @@ const guardarCambios = async () => {
             Cancelar
           </button>
         </DialogTitle>
+        <DialogDescription className="sr-only">
+          Formulario para editar los datos y servicios de la cita.
+        </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-5 py-2 text-gray-800">
-
-        {/* Servicio */}
+        {/* ================= EDITAR SERVICIOS ================= */}
         <div>
-          <label className="text-sm font-semibold text-gray-700">Servicio</label>
-          <select
-            className="w-full border mt-1 rounded-lg px-3 py-2"
-            value={form.servicioId || ""}
-            onChange={(e) => handleServicioChange(e.target.value)}
-          >
-            <option value="">Seleccione un servicio</option>
-            {servicios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nombre} — {s.duracion} min / ${s.precio}
-              </option>
+          <label className="text-sm font-semibold text-gray-700">
+            Servicios de la cita
+          </label>
+
+          <div className="space-y-2 mt-2">
+            {localServicios.map((s, index) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between p-2 border rounded-lg bg-gray-50"
+              >
+                <div>
+                  <p className="font-semibold text-sm">{s.servicio?.nombre}</p>
+                  <p className="text-xs text-gray-500">
+                    {s.duracion} min — ${s.precio.toLocaleString("es-CO")}
+                  </p>
+                </div>
+
+                <button
+                  className="text-red-600 text-sm font-bold"
+                  onClick={() => {
+                    const nuevos = [...localServicios];
+                    nuevos.splice(index, 1);
+                    setLocalServicios(nuevos);
+                    recalcTotals(nuevos);
+                  }}
+                >
+                  Eliminar
+                </button>
+              </div>
             ))}
-          </select>
+          </div>
+
+          {/* Agregar servicio */}
+          <div className="mt-4">
+            <label className="text-sm text-gray-700">Agregar servicio</label>
+
+            <select
+              className="w-full border mt-1 rounded-lg px-3 py-2"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) return;
+
+                const serv = servicios.find((s: any) => s.id === id);
+                if (!serv) return;
+
+                if (localServicios.some((sv) => sv.servicioId === serv.id)) {
+                  e.target.value = "";
+                  return;
+                }
+
+                const nuevos = [
+                  ...localServicios,
+                  {
+                    id: crypto.randomUUID(),
+                    servicioId: serv.id,
+                    precio: serv.precio,
+                    duracion: serv.duracion,
+                    servicio: serv,
+                  },
+                ];
+
+                setLocalServicios(nuevos);
+                recalcTotals(nuevos);
+
+                e.target.value = "";
+              }}
+            >
+              <option value="">Seleccione un servicio</option>
+              {servicios.map((s: any) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre} — {s.duracion} min / $
+                  {s.precio.toLocaleString("es-CO")}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Fecha */}
+        {/* FECHA */}
         <div>
           <label className="text-sm font-semibold text-gray-700">
             Fecha y hora
           </label>
           <input
             type="datetime-local"
-            className="w-full border mt-1 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400"
+            className="w-full border mt-1 rounded-lg px-3 py-2"
             value={form.fechaHora}
             onChange={(e) => handleChange("fechaHora", e.target.value)}
           />
         </div>
 
-        {/* Cliente */}
+        {/* CLIENTE */}
         <div>
           <label className="text-sm font-semibold text-gray-700">Cliente</label>
-
           <input
             type="text"
             className="w-full border rounded-lg px-3 py-2 mt-1"
             value={form.nombreCliente}
             onChange={(e) => handleChange("nombreCliente", e.target.value)}
           />
-
           <input
             type="email"
             className="w-full border rounded-lg px-3 py-2 mt-2"
             value={form.emailCliente}
             onChange={(e) => handleChange("emailCliente", e.target.value)}
           />
-
           <input
             type="tel"
             className="w-full border rounded-lg px-3 py-2 mt-2"
             value={form.whatsappCliente}
-            onChange={(e) => handleChange("whatsappCliente", e.target.value)}
+            onChange={(e) =>
+              handleChange("whatsappCliente", e.target.value)
+            }
           />
         </div>
 
-        {/* Precio */}
+        {/* PRECIO */}
         <div>
-          <label className="text-sm font-semibold text-gray-700">Precio</label>
+          <label className="text-sm font-semibold text-gray-700">
+            Precio total
+          </label>
           <input
             type="number"
             className="w-full border rounded-lg px-3 py-2 mt-1"
@@ -343,7 +437,7 @@ const guardarCambios = async () => {
           />
         </div>
 
-        {/* Notas */}
+        {/* NOTAS */}
         <div>
           <label className="text-sm font-semibold text-gray-700">Notas</label>
           <textarea
@@ -354,7 +448,7 @@ const guardarCambios = async () => {
           />
         </div>
 
-        {/* BOTÓN GUARDAR */}
+        {/* GUARDAR */}
         <button
           onClick={guardarCambios}
           disabled={loading}

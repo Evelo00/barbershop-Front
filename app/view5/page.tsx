@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   format,
   addMonths,
@@ -15,12 +16,17 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-interface Service {
+interface SelectedService {
   id: string;
   name: string;
   price: number;
-  duration: number;
   duracionMinutos: number;
+}
+
+interface ReservationData {
+  servicios: SelectedService[];
+  duracionTotal: number;
+  precioTotal: number;
 }
 
 interface TimeSlot {
@@ -28,35 +34,13 @@ interface TimeSlot {
   value: string;
 }
 
-const customColors = {
-  "barber-dark": "#2A2A2A",
-};
-
+const customColors = { "barber-dark": "#2A2A2A" };
 
 function getScheduleForDay(date: Date) {
-  const day = date.getDay(); // 0=domingo, 1=lun...6=sáb
-
-  if (day === 0) {
-    return {
-      start: 10,   // 10:00 AM
-      end: 18.5,   // 6:30 PM
-    };
-  }
-
-  if (day >= 1 && day <= 4) {
-    return {
-      start: 8,    // 8:00 AM
-      end: 19.5,   // 7:30 PM
-    };
-  }
-
-  if (day === 5 || day === 6) {
-    return {
-      start: 8,     // 8:00 AM
-      end: 20.5,    // 8:30 PM
-    };
-  }
-
+  const day = date.getDay();
+  if (day === 0) return { start: 10, end: 18.5 };
+  if (day >= 1 && day <= 4) return { start: 8, end: 19.5 };
+  if (day === 5 || day === 6) return { start: 8, end: 20.5 };
   return { start: 8, end: 19.5 };
 }
 
@@ -69,33 +53,31 @@ function generateSlotsFor(date: Date): TimeSlot[] {
 
   for (let h = start; h <= endHour; h++) {
     let minutes = [0, 15, 30, 45];
-
-    if (h === endHour) {
-      minutes = minutes.filter((m) => m <= endMinute);
-    }
+    if (h === endHour) minutes = minutes.filter((m) => m <= endMinute);
 
     for (let m of minutes) {
       const hh = String(h).padStart(2, "0");
       const mm = String(m).padStart(2, "0");
 
-      const value = `${hh}:${mm}`;
-
       const displayH = h % 12 || 12;
       const ampm = h < 12 ? "am" : "pm";
-      const display = `${displayH}:${mm} ${ampm}`;
 
-      slots.push({ display, value });
+      slots.push({
+        value: `${hh}:${mm}`,
+        display: `${displayH}:${mm} ${ampm}`,
+      });
     }
   }
 
   return slots;
 }
 
-
 const View5Page: React.FC = () => {
-  const router = { push: (path: string) => (window.location.href = path) };
+  const router = useRouter();
 
-  const [service, setService] = useState<Service | null>(null);
+  // Antes era un solo servicio, ahora es un objeto con servicios[]
+  const [reservation, setReservation] = useState<ReservationData | null>(null);
+
   const [barberId, setBarberId] = useState<string | null>(null);
   const [barberName, setBarberName] = useState<string | null>(null);
 
@@ -113,18 +95,20 @@ const View5Page: React.FC = () => {
     setTimeout(() => setMessage(null), 2600);
   };
 
+  // Cargar datos desde LS
   useEffect(() => {
-    const s = localStorage.getItem("abalvi_reserva_servicio");
+    const stored = localStorage.getItem("abalvi_reserva_servicio");
     const b = localStorage.getItem("abalvi_reserva_barbero");
     const bname = localStorage.getItem("abalvi_reserva_barbero_nombre");
 
-    if (s) setService(JSON.parse(s));
+    if (stored) setReservation(JSON.parse(stored));
     if (b) setBarberId(b);
     if (bname) setBarberName(bname);
   }, []);
 
+  // Obtener disponibilidad usando duración total
   const fetchAvailable = async (day: Date) => {
-    if (!service || !barberId) return;
+    if (!reservation || !barberId) return;
 
     setLoadingSlots(true);
     setAvailableSlots([]);
@@ -133,12 +117,12 @@ const View5Page: React.FC = () => {
       const dateStr = format(day, "yyyy-MM-dd");
 
       const res = await fetch(
-        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${service.duracionMinutos}&barberoId=${barberId}`
+        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${reservation.duracionTotal}&barberoId=${barberId}`
       );
 
       const data = await res.json();
       setAvailableSlots(data.availableSlots || []);
-    } catch (err) {
+    } catch {
       showMessage("Error cargando horarios.");
     } finally {
       setLoadingSlots(false);
@@ -161,7 +145,7 @@ const View5Page: React.FC = () => {
   };
 
   const handleFinalize = async () => {
-    if (!selectedDate || !selectedTime || !service || !barberId) {
+    if (!selectedDate || !selectedTime || !reservation || !barberId) {
       showMessage("Selecciona fecha y hora.");
       return;
     }
@@ -174,11 +158,10 @@ const View5Page: React.FC = () => {
     );
 
     const body = {
-      clienteId: null,
       barberoId: barberId,
-      servicioId: service.id,
       fechaHora,
-      precioFinal: service.price,
+      servicios: reservation.servicios.map((s) => s.id),
+      precioFinal: reservation.precioTotal,
       nombreCliente: clientData.nombre || null,
       emailCliente: clientData.correo || null,
       whatsappCliente: clientData.whatsapp || null,
@@ -202,11 +185,12 @@ const View5Page: React.FC = () => {
 
       showMessage("Cita creada!");
       setTimeout(() => router.push("/view6"), 900);
-    } catch (err) {
+    } catch {
       showMessage("Error al agendar la cita");
     }
   };
 
+  // RENDER CALENDARIO (sin cambios)
   const renderCalendar = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -366,13 +350,29 @@ const View5Page: React.FC = () => {
           </div>
         </div>
 
-        {/* INFO */}
+        {/* INFO DE SERVICIOS */}
         <div className="px-6 -top-2 relative text-center">
-          <p className="text-sm text-gray-600">
-            <span className="font-semibold">Barbero:</span> {barberName} |
-            <span className="font-semibold"> Servicio:</span> {service?.name} – $
-            {service?.price?.toLocaleString("es-CO")}
-          </p>
+          {reservation && (
+            <>
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold">Barbero:</span> {barberName}
+              </p>
+
+              <p className="text-sm text-gray-600 mt-1">
+                <span className="font-semibold">Servicios:</span>{" "}
+                {reservation.servicios.map((s) => s.name).join(", ")}
+              </p>
+
+              <p className="text-sm text-gray-600 mt-1">
+                <span className="font-semibold">Total:</span>{" "}
+                ${reservation.precioTotal.toLocaleString("es-CO")}
+              </p>
+
+              <p className="text-sm text-gray-600">
+                Duración total: {reservation.duracionTotal} min
+              </p>
+            </>
+          )}
         </div>
 
         {/* BOTÓN FINAL */}
