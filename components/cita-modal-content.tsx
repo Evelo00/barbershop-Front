@@ -43,34 +43,24 @@ interface CitaModalContentProps {
 
 function utcToLocalInput(datetime: string) {
   const date = new Date(datetime);
-  const localISO = new Date(
-    date.getTime() - date.getTimezoneOffset() * 60000
-  )
-    .toISOString()
-    .slice(0, 16);
-  return localISO;
+  return date.toISOString().slice(0, 16);
 }
 
-// ✅ Normaliza datetime-local a ISO con zona Bogotá (-05:00)
 function withBogotaOffset(datetimeLocal: string) {
   if (!datetimeLocal) return datetimeLocal;
 
-  // Ya trae zona horaria o Z al final → no tocar
   if (/[zZ]$/.test(datetimeLocal) || /[+-]\d{2}:\d{2}$/.test(datetimeLocal)) {
     return datetimeLocal;
   }
 
-  // Formato típico de <input type="datetime-local"> → "YYYY-MM-DDTHH:mm"
   if (datetimeLocal.length === 16) {
     return `${datetimeLocal}:00-05:00`;
   }
 
-  // Si ya trae segundos pero sin zona → "YYYY-MM-DDTHH:mm:ss"
   if (datetimeLocal.length === 19) {
     return `${datetimeLocal}-05:00`;
   }
 
-  // fallback
   return `${datetimeLocal}-05:00`;
 }
 
