@@ -7,7 +7,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Clock,
   DollarSign,
@@ -43,8 +43,16 @@ interface CitaModalContentProps {
 
 function utcToLocalInput(datetime: string) {
   const date = new Date(datetime);
-  return date.toISOString().slice(0, 16);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
+
 
 function withBogotaOffset(datetimeLocal: string) {
   if (!datetimeLocal) return datetimeLocal;
@@ -197,6 +205,22 @@ export function CitaModalContent({
     h = h % 12 || 12;
     return `${h}:${m} ${ampm}`;
   };
+
+  useEffect(() => {
+    setForm({
+      nombreCliente: cita.nombreCliente || "",
+      emailCliente: cita.emailCliente || "",
+      whatsappCliente: cita.whatsappCliente || "",
+      precioFinal: cita.precioFinal ?? 0,
+      notas: cita.notas || "",
+      fechaHora: utcToLocalInput(cita.fechaHora),
+      duracionMinutos: cita.duracionMinutos,
+    });
+
+    setLocalServicios(cita.servicios || []);
+
+  }, [cita]);
+
 
   if (!editMode)
     return (
