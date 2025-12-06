@@ -43,7 +43,6 @@ interface CitaModalContentProps {
 
 function utcToLocalInput(datetime: string) {
   const date = new Date(datetime);
-  // Pasar de UTC a local "naive" para datetime-local (YYYY-MM-DDTHH:mm)
   const localISO = new Date(
     date.getTime() - date.getTimezoneOffset() * 60000
   )
@@ -52,16 +51,27 @@ function utcToLocalInput(datetime: string) {
   return localISO;
 }
 
-// 👉 Normaliza string de datetime-local a ISO con zona de Bogotá
+// ✅ Normaliza datetime-local a ISO con zona Bogotá (-05:00)
 function withBogotaOffset(datetimeLocal: string) {
-  // viene como "2025-12-27T09:00"
   if (!datetimeLocal) return datetimeLocal;
-  // si ya trae un + o - en la parte final, no tocar
-  if (datetimeLocal.includes("+") || datetimeLocal.includes("-")) {
+
+  // Ya trae zona horaria o Z al final → no tocar
+  if (/[zZ]$/.test(datetimeLocal) || /[+-]\d{2}:\d{2}$/.test(datetimeLocal)) {
     return datetimeLocal;
   }
-  // agregar segundos y offset -05:00
-  return `${datetimeLocal}:00-05:00`;
+
+  // Formato típico de <input type="datetime-local"> → "YYYY-MM-DDTHH:mm"
+  if (datetimeLocal.length === 16) {
+    return `${datetimeLocal}:00-05:00`;
+  }
+
+  // Si ya trae segundos pero sin zona → "YYYY-MM-DDTHH:mm:ss"
+  if (datetimeLocal.length === 19) {
+    return `${datetimeLocal}-05:00`;
+  }
+
+  // fallback
+  return `${datetimeLocal}-05:00`;
 }
 
 export function CitaModalContent({
@@ -108,7 +118,6 @@ export function CitaModalContent({
     try {
       const token = localStorage.getItem("token");
 
-      // 🔥 convertir datetime-local a ISO con zona de Bogotá
       const fechaHoraNormalizada = withBogotaOffset(form.fechaHora);
 
       const payload = {
@@ -187,7 +196,7 @@ export function CitaModalContent({
     setLoading(false);
   };
 
-  // ⏱ Para mostrar: usamos fechaHora que viene de la DB (UTC) + duración
+  // Mostrar horario (usando hora de la DB en UTC, convertida por el navegador)
   const inicio = new Date(cita.fechaHora);
   const fin = new Date(inicio.getTime() + form.duracionMinutos * 60000);
 
@@ -199,7 +208,6 @@ export function CitaModalContent({
     return `${h}:${m} ${ampm}`;
   };
 
-  /* ===================== MODO LECTURA ===================== */
   if (!editMode)
     return (
       <DialogContent
@@ -235,7 +243,6 @@ export function CitaModalContent({
           </DialogDescription>
         </DialogHeader>
 
-        {/* SERVICIOS */}
         <div className="space-y-5 py-2 text-gray-800">
           <div className="border-b pb-3">
             <h3 className="text-lg font-semibold mb-2">Servicios</h3>
@@ -263,7 +270,6 @@ export function CitaModalContent({
             )}
           </div>
 
-          {/* INFO */}
           <div className="grid grid-cols-[25px_1fr] text-sm gap-y-4">
             <User className="text-blue-600 w-5 h-5" />
             <p>{cita.nombreCliente || "Cliente externo"}</p>
@@ -298,7 +304,6 @@ export function CitaModalContent({
       </DialogContent>
     );
 
-  /* ===================== MODO EDICIÓN ===================== */
   return (
     <DialogContent
       showCloseButton={false}
@@ -357,7 +362,6 @@ export function CitaModalContent({
             ))}
           </div>
 
-          {/* Agregar servicio */}
           <div className="mt-4">
             <label className="text-sm text-gray-700">Agregar servicio</label>
 
@@ -472,7 +476,6 @@ export function CitaModalContent({
           />
         </div>
 
-        {/* GUARDAR */}
         <button
           onClick={guardarCambios}
           disabled={loading}
