@@ -41,17 +41,27 @@ interface CitaModalContentProps {
   servicios: any[];
 }
 
-/* 🔥 FIX PRINCIPAL: convertir UTC → Bogotá sin duplicar offset */
-function toLocalDatetimeInput(utcString: string) {
-  const date = new Date(utcString);
+function utcToLocalInput(datetime: string) {
+  const date = new Date(datetime);
+  // Pasar de UTC a local "naive" para datetime-local (YYYY-MM-DDTHH:mm)
+  const localISO = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60000
+  )
+    .toISOString()
+    .slice(0, 16);
+  return localISO;
+}
 
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-
-  return `${y}-${m}-${d}T${hh}:${mm}`;
+// 👉 Normaliza string de datetime-local a ISO con zona de Bogotá
+function withBogotaOffset(datetimeLocal: string) {
+  // viene como "2025-12-27T09:00"
+  if (!datetimeLocal) return datetimeLocal;
+  // si ya trae un + o - en la parte final, no tocar
+  if (datetimeLocal.includes("+") || datetimeLocal.includes("-")) {
+    return datetimeLocal;
+  }
+  // agregar segundos y offset -05:00
+  return `${datetimeLocal}:00-05:00`;
 }
 
 export function CitaModalContent({
@@ -74,8 +84,7 @@ export function CitaModalContent({
     whatsappCliente: cita.whatsappCliente || "",
     precioFinal: cita.precioFinal ?? 0,
     notas: cita.notas || "",
-    /* 🔥 FECHA/HORA SIN DESFASAR */
-    fechaHora: toLocalDatetimeInput(cita.fechaHora),
+    fechaHora: utcToLocalInput(cita.fechaHora),
     duracionMinutos: cita.duracionMinutos,
   });
 
@@ -99,9 +108,12 @@ export function CitaModalContent({
     try {
       const token = localStorage.getItem("token");
 
+      // 🔥 convertir datetime-local a ISO con zona de Bogotá
+      const fechaHoraNormalizada = withBogotaOffset(form.fechaHora);
+
       const payload = {
         ...form,
-        /* Enviar servicios en formato correcto */
+        fechaHora: fechaHoraNormalizada,
         servicios: localServicios.map((s) => ({
           servicioId: s.servicioId ?? s.servicio?.id,
           precio: s.precio,
@@ -175,9 +187,9 @@ export function CitaModalContent({
     setLoading(false);
   };
 
-  /* 🔥 HORAS EN MODAL VIEW 100% CORRECTAS */
+  // ⏱ Para mostrar: usamos fechaHora que viene de la DB (UTC) + duración
   const inicio = new Date(cita.fechaHora);
-  const fin = new Date(inicio.getTime() + cita.duracionMinutos * 60000);
+  const fin = new Date(inicio.getTime() + form.duracionMinutos * 60000);
 
   const format12 = (d: Date) => {
     let h = d.getHours();
@@ -187,7 +199,7 @@ export function CitaModalContent({
     return `${h}:${m} ${ampm}`;
   };
 
-  /* =========================== VIEW MODE ============================== */
+  /* ===================== MODO LECTURA ===================== */
   if (!editMode)
     return (
       <DialogContent
@@ -235,7 +247,9 @@ export function CitaModalContent({
                     key={s.id}
                     className="px-3 py-2 rounded-lg bg-gray-100 border text-sm flex flex-col"
                   >
-                    <span className="font-semibold">{s.servicio?.nombre}</span>
+                    <span className="font-semibold">
+                      {s.servicio?.nombre}
+                    </span>
                     <span className="text-gray-600 text-xs">
                       {s.duracion} min — ${s.precio.toLocaleString("es-CO")}
                     </span>
@@ -243,7 +257,9 @@ export function CitaModalContent({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No hay servicios asociados</p>
+              <p className="text-sm text-gray-500">
+                No hay servicios asociados
+              </p>
             )}
           </div>
 
@@ -282,7 +298,7 @@ export function CitaModalContent({
       </DialogContent>
     );
 
-  /* ========================== EDIT MODE ============================== */
+  /* ===================== MODO EDICIÓN ===================== */
   return (
     <DialogContent
       showCloseButton={false}
@@ -298,13 +314,14 @@ export function CitaModalContent({
             Cancelar
           </button>
         </DialogTitle>
+
         <DialogDescription className="sr-only">
           Formulario para editar los datos y servicios de la cita.
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-5 py-2 text-gray-800">
-        {/* ================= EDITAR SERVICIOS ================= */}
+        {/* SERVICIOS */}
         <div>
           <label className="text-sm font-semibold text-gray-700">
             Servicios de la cita
@@ -317,7 +334,9 @@ export function CitaModalContent({
                 className="flex items-center justify-between p-2 border rounded-lg bg-gray-50"
               >
                 <div>
-                  <p className="font-semibold text-sm">{s.servicio?.nombre}</p>
+                  <p className="font-semibold text-sm">
+                    {s.servicio?.nombre}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {s.duracion} min — ${s.precio.toLocaleString("es-CO")}
                   </p>
@@ -374,6 +393,7 @@ export function CitaModalContent({
               }}
             >
               <option value="">Seleccione un servicio</option>
+
               {servicios.map((s: any) => (
                 <option key={s.id} value={s.id}>
                   {s.nombre} — {s.duracion} min / $
@@ -399,7 +419,9 @@ export function CitaModalContent({
 
         {/* CLIENTE */}
         <div>
-          <label className="text-sm font-semibold text-gray-700">Cliente</label>
+          <label className="text-sm font-semibold text-gray-700">
+            Cliente
+          </label>
           <input
             type="text"
             className="w-full border rounded-lg px-3 py-2 mt-1"
@@ -439,7 +461,9 @@ export function CitaModalContent({
 
         {/* NOTAS */}
         <div>
-          <label className="text-sm font-semibold text-gray-700">Notas</label>
+          <label className="text-sm font-semibold text-gray-700">
+            Notas
+          </label>
           <textarea
             rows={3}
             className="w-full border rounded-lg px-3 py-2 mt-1"
