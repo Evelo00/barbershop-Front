@@ -9,7 +9,7 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({
-  whatsappLink = 'https://w.app/abalvi',
+  whatsappLink = 'https://wa.me/message/2X7HHA2HSUDLJ1',
 }) => {
   const router = useRouter();
 

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "Abalvi Barber Shop",
   description: "Reserva tu cita en Avalbi Barber Shop de manera fácil y rápida.",
   icons: {
-    icon: "/Logo.png",
+    icon: "/favicon.png",
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
