@@ -9,8 +9,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Abalvi Barber Shop",
-  description: "Reserva tu cita en Avalbi Barber Shop de manera fácil y rápida.",
+  title: "Abalvi Barber",
+  description: "Reserva tu cita en Avalbi Barber de manera fácil y rápida.",
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon-16x16.png",
