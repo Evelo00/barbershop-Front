@@ -52,9 +52,16 @@ const Home: React.FC<HomeProps> = ({
           <br />
           TU CITA
         </h1>
-
+        <div className="flex flex-col space-y-4 w-full max-w-sm md:max-w-md mb-3"> 
+        <button
+          onClick={() => handleNavigate("alamedas")}
+          className="w-full text-center flex items-center justify-center border border-white bg-black rounded-[18px] py-3 px-6 text-sm md:text-base lg:text-lg font-medium uppercase tracking-widest transition-colors duration-300 hover:bg-white hover:text-black"
+        >
+          Link reservas Alamedas
+        </button>
+        </div>
         <div className="flex flex-col space-y-4 w-full max-w-sm md:max-w-md">
-          {loading && (
+          {/* {loading && (
             <div className="text-center text-sm text-gray-400">
               Cargando sedes…
             </div>
@@ -69,7 +76,8 @@ const Home: React.FC<HomeProps> = ({
               >
                 Reservas · {sede.nombre}
               </button>
-            ))}
+            ))} */}
+
 
           {/* WhatsApp (puedes luego hacerlo por sede si quieres) */}
           <a
