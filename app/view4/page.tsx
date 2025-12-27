@@ -6,6 +6,8 @@ import { Loader2, ArrowLeft } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+const SEDE_KEY = "sedeId";
+
 interface Barber {
   id: string;
   nombre: string;
@@ -32,6 +34,7 @@ const customColors = {
 const View4Page: React.FC = () => {
   const router = useRouter();
 
+  const [sedeId, setSedeId] = useState<string | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string | null>(null);
   const [loadingBarbers, setLoadingBarbers] = useState(true);
@@ -40,36 +43,60 @@ const View4Page: React.FC = () => {
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
 
-  // Cargar servicios seleccionados desde View3
+  /* 🔐 Validar sede */
+  useEffect(() => {
+    const sede = localStorage.getItem(SEDE_KEY);
+    if (!sede) {
+      router.replace("/");
+      return;
+    }
+    setSedeId(sede);
+  }, [router]);
+
+  /* Servicios seleccionados */
   useEffect(() => {
     const stored = localStorage.getItem("abalvi_reserva_servicio");
-    if (stored) setReservation(JSON.parse(stored));
+    if (stored) {
+      try {
+        setReservation(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem("abalvi_reserva_servicio");
+      }
+    }
   }, []);
 
-  // Traer barberos del backend
+  /* 🔥 Traer barberos POR SEDE */
   useEffect(() => {
+    if (!sedeId) return;
+
     const fetchBarbers = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/users/public/barbers`);
+        setLoadingBarbers(true);
+
+        const res = await fetch(
+          `${API_BASE_URL}/api/users/public/barbers?sedeId=${sedeId}`
+        );
+
         if (!res.ok) throw new Error(`Error ${res.status}`);
+
         const data = await res.json();
-        setBarbers(data);
+        setBarbers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("❌ Error fetching barbers:", error);
+        setBarbers([]);
       } finally {
         setLoadingBarbers(false);
       }
     };
 
     fetchBarbers();
-  }, []);
+  }, [sedeId]);
 
   const showMessage = (text: string) => {
     setMessage(text);
     setTimeout(() => setMessage(null), 1800);
   };
 
-  // redirecciona a /view5
   const handleSelectBarber = (barberId: string, barberName: string) => {
     if (isLoading) return;
 
@@ -77,7 +104,10 @@ const View4Page: React.FC = () => {
     setSelectedBarber(barberId);
 
     localStorage.setItem("abalvi_reserva_barbero", barberId);
-    localStorage.setItem("abalvi_reserva_barbero_nombre", barberName);
+    localStorage.setItem(
+      "abalvi_reserva_barbero_nombre",
+      barberName
+    );
 
     showMessage(`✔ Barbero ${barberName} seleccionado`);
 
@@ -86,38 +116,48 @@ const View4Page: React.FC = () => {
     }, 500);
   };
 
+  if (!sedeId) return null;
+
   return (
     <div className="w-full min-h-screen flex justify-center items-stretch bg-gray-100 sm:p-8">
       <div className="w-full max-w-sm sm:max-w-xl md:max-w-2xl shadow-2xl relative bg-white min-h-screen sm:min-h-[90vh] sm:rounded-xl">
-
+        {/* HEADER */}
         <div
           className="p-6 pb-20 text-center text-white rounded-b-[40px]"
           style={{ backgroundColor: customColors["barber-dark"] }}
         >
-          <p className="text-xs tracking-widest text-gray-400">ABALVI BARBER</p>
-          <h2 className="text-3xl font-extrabold mt-3">ELIGE A TU BARBERO</h2>
+          <p className="text-xs tracking-widest text-gray-400">
+            ABALVI BARBER
+          </p>
+          <h2 className="text-3xl font-extrabold mt-3">
+            ELIGE A TU BARBERO
+          </h2>
 
           {reservation && (
             <div className="mt-4 text-sm font-semibold text-gray-200">
               {reservation.servicios.length === 1 ? (
                 <p>
                   {reservation.servicios[0].name} — $
-                  {reservation.servicios[0].price.toLocaleString("es-CO")}
+                  {reservation.servicios[0].price.toLocaleString(
+                    "es-CO"
+                  )}
                 </p>
               ) : (
                 <div>
-                  <p className="uppercase mb-1">Servicios seleccionados:</p>
+                  <p className="uppercase mb-1">
+                    Servicios seleccionados:
+                  </p>
 
-                  {/* Lista */}
                   {reservation.servicios.map((s) => (
                     <p key={s.id} className="text-gray-300 text-xs">
-                      • {s.name} — ${s.price.toLocaleString("es-CO")}
+                      • {s.name} — $
+                      {s.price.toLocaleString("es-CO")}
                     </p>
                   ))}
 
-                  {/* Totales */}
                   <p className="mt-2 text-gray-100 text-sm font-bold">
-                    TOTAL: ${reservation.precioTotal.toLocaleString("es-CO")}
+                    TOTAL: $
+                    {reservation.precioTotal.toLocaleString("es-CO")}
                   </p>
                   <p className="text-gray-300 text-xs">
                     Duración total: {reservation.duracionTotal} min
@@ -128,6 +168,7 @@ const View4Page: React.FC = () => {
           )}
         </div>
 
+        {/* BARBEROS */}
         <div className="relative -top-12 px-6 pb-6">
           {loadingBarbers ? (
             <div className="p-8 text-center bg-white rounded-lg shadow-md">
@@ -136,7 +177,7 @@ const View4Page: React.FC = () => {
             </div>
           ) : barbers.length === 0 ? (
             <div className="p-8 text-center bg-white rounded-lg shadow-md">
-              ❌ No hay barberos disponibles
+              ❌ No hay barberos disponibles en esta sede
             </div>
           ) : (
             <div
@@ -147,7 +188,9 @@ const View4Page: React.FC = () => {
               {barbers.map((barber) => (
                 <div
                   key={barber.id}
-                  onClick={() => handleSelectBarber(barber.id, barber.nombre)}
+                  onClick={() =>
+                    handleSelectBarber(barber.id, barber.nombre)
+                  }
                   className={`p-2 text-center rounded-lg cursor-pointer transition-all border-2 ${
                     selectedBarber === barber.id
                       ? "bg-gray-200 border-black scale-105"
@@ -162,8 +205,8 @@ const View4Page: React.FC = () => {
                         alt={barber.nombre}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500">
-                        <span>Sin foto</span>
+                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                        Sin foto
                       </div>
                     )}
                   </div>
@@ -189,7 +232,7 @@ const View4Page: React.FC = () => {
         </div>
       </div>
 
-      {/* MENSAJE POPUP */}
+      {/* MENSAJE */}
       {message && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-3 rounded-full shadow-xl">
           {message}

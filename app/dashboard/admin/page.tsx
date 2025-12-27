@@ -17,6 +17,7 @@ import { CitaModalContent } from "@/components/cita-modal-content";
 import CreateCitaModal from "@/components/createCitaModal";
 import BloqueoModal from "@/components/bloqueo-modal";
 import { useToast } from "@/hooks/use-toast";
+import AgregarCliente from "@/components/agregarCliente";
 import { toZonedTime } from "date-fns-tz";
 
 interface Cita {
@@ -95,6 +96,10 @@ export default function SuperadminDashboard() {
   const [blockModal, setBlockModal] = useState(false);
   const [blockBarbero, setBlockBarbero] = useState<UserData | null>(null);
   const [createModal, setCreateModal] = useState(false);
+  const [addClienteModal, setAddClienteModal] = useState(false);
+  const [sedes, setSedes] = useState<{ id: string; nombre: string }[]>([]);
+  const [selectedSedeId, setSelectedSedeId] = useState<string | null>(null);
+
 
   const START_HOUR = 8;
   const END_HOUR = 20;
@@ -126,15 +131,22 @@ export default function SuperadminDashboard() {
 
   /* Fetch USERS */
   const fetchUsers = async () => {
+    if (!selectedSedeId) {
+      setUsers([]);
+      return;
+    }
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API_BASE_URL}/api/users`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/users?rol=barbero&sedeId=${selectedSedeId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
 
       const data = await res.json();
 
@@ -173,12 +185,15 @@ export default function SuperadminDashboard() {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API_BASE_URL}/api/citas`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/citas?sedeId=${selectedSedeId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
 
       const data: Cita[] = await res.json();
 
@@ -223,6 +238,24 @@ export default function SuperadminDashboard() {
       if (first && !selectedMobileBarber) setSelectedMobileBarber(first.id);
     }
   }, [users]);
+
+  useEffect(() => {
+    if (!selectedSedeId) return;
+
+    fetchUsers();
+    // limpia selección móvil para que se reasigne
+    setSelectedMobileBarber(null);
+
+  }, [selectedSedeId]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/sedes`)
+      .then(res => res.json())
+      .then(data => {
+        setSedes(data);
+        setSelectedSedeId(data[0]?.id ?? null);
+      });
+  }, []);
 
   const barberos = useMemo(
     () =>
@@ -279,6 +312,7 @@ export default function SuperadminDashboard() {
     if (!blockBarbero) return;
 
     const body = {
+      sedeId: selectedSedeId,
       barberoId: blockBarbero.id,
       clienteId: null,
       servicioId: "00000000-0000-0000-0000-000000000999",
@@ -326,6 +360,21 @@ export default function SuperadminDashboard() {
             Administración
           </h1>
         </div>
+        <select
+          value={selectedSedeId ?? ""}
+          onChange={(e) => setSelectedSedeId(e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-white"
+        >
+          <option value="" disabled>
+            Seleccionar sede
+          </option>
+
+          {sedes.map((sede) => (
+            <option key={sede.id} value={sede.id}>
+              {sede.nombre}
+            </option>
+          ))}
+        </select>
 
         <div className="flex items-center gap-2">
           <Button
@@ -333,6 +382,13 @@ export default function SuperadminDashboard() {
             className="bg-green-600 hover:bg-green-700 text-white px-3 text-sm md:text-base"
           >
             <Plus className="w-4 h-4 mr-1" /> Crear
+          </Button>
+
+          <Button
+            onClick={() => setAddClienteModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 text-sm md:text-base"
+          >
+            <Plus className="w-4 h-4 mr-1" /> Agregar cliente
           </Button>
 
           <Button
@@ -610,6 +666,20 @@ export default function SuperadminDashboard() {
           onCreated={fetchCitas}
           barberos={barberos}
           servicios={servicios}
+          apiUrl={API_BASE_URL || ""}
+          sedeId={selectedSedeId}
+        />
+      </Dialog>
+
+      {/* MODAL AGREGAR CLIENTE */}
+      <Dialog
+        modal={false}
+        open={addClienteModal}
+        onOpenChange={setAddClienteModal}
+      >
+        <AgregarCliente
+          open={addClienteModal}
+          onClose={() => setAddClienteModal(false)}
           apiUrl={API_BASE_URL || ""}
         />
       </Dialog>

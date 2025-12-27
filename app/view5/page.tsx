@@ -16,6 +16,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+const SEDE_KEY = "sedeId";
+
 interface SelectedService {
   id: string;
   name: string;
@@ -75,11 +77,10 @@ function generateSlotsFor(date: Date): TimeSlot[] {
 const View5Page: React.FC = () => {
   const router = useRouter();
 
-  // Antes era un solo servicio, ahora es un objeto con servicios[]
   const [reservation, setReservation] = useState<ReservationData | null>(null);
-
   const [barberId, setBarberId] = useState<string | null>(null);
   const [barberName, setBarberName] = useState<string | null>(null);
+  const [sedeId, setSedeId] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -100,16 +101,25 @@ const View5Page: React.FC = () => {
     const stored = localStorage.getItem("abalvi_reserva_servicio");
     const b = localStorage.getItem("abalvi_reserva_barbero");
     const bname = localStorage.getItem("abalvi_reserva_barbero_nombre");
+    const sede = localStorage.getItem(SEDE_KEY);
+
+    if (!sede) {
+      router.replace("/");
+      return;
+    }
 
     if (stored) setReservation(JSON.parse(stored));
     if (b) setBarberId(b);
     if (bname) setBarberName(bname);
-  }, []);
+    setSedeId(sede);
+  }, [router]);
 
-  // Obtener disponibilidad usando duración total
+  if (!reservation || !barberId || !sedeId) return null;
+
+  /* =========================
+     DISPONIBILIDAD (MULTISEDE)
+  ========================= */
   const fetchAvailable = async (day: Date) => {
-    if (!reservation || !barberId) return;
-
     setLoadingSlots(true);
     setAvailableSlots([]);
 
@@ -117,7 +127,7 @@ const View5Page: React.FC = () => {
       const dateStr = format(day, "yyyy-MM-dd");
 
       const res = await fetch(
-        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${reservation.duracionTotal}&barberoId=${barberId}`
+        `${API_BASE_URL}/api/citas/availability?date=${dateStr}&serviceDuration=${reservation.duracionTotal}&barberoId=${barberId}&sedeId=${sedeId}`
       );
 
       const data = await res.json();
@@ -144,8 +154,11 @@ const View5Page: React.FC = () => {
     setAvailableSlots([]);
   };
 
+  /* =========================
+     CREAR CITA (PUBLIC)
+  ========================= */
   const handleFinalize = async () => {
-    if (!selectedDate || !selectedTime || !reservation || !barberId) {
+    if (!selectedDate || !selectedTime) {
       showMessage("Selecciona fecha y hora.");
       return;
     }
@@ -158,6 +171,7 @@ const View5Page: React.FC = () => {
     );
 
     const body = {
+      sedeId,
       barberoId: barberId,
       fechaHora,
       servicios: reservation.servicios.map((s) => s.id),
@@ -190,7 +204,9 @@ const View5Page: React.FC = () => {
     }
   };
 
-  // RENDER CALENDARIO (sin cambios)
+  /* =========================
+     RENDER CALENDARIO
+  ========================= */
   const renderCalendar = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
@@ -283,10 +299,7 @@ const View5Page: React.FC = () => {
 
         <div className="grid grid-cols-7 gap-1 mb-2">
           {["LU", "MA", "MI", "JU", "VI", "SA", "DO"].map((d) => (
-            <div
-              key={d}
-              className="text-gray-300 text-center text-xs font-semibold"
-            >
+            <div key={d} className="text-gray-300 text-center text-xs font-semibold">
               {d}
             </div>
           ))}
@@ -306,12 +319,16 @@ const View5Page: React.FC = () => {
         {/* HORARIOS */}
         <div className="relative -top-10 px-6">
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-bold text-center mb-4">ELIGE LA HORA</h3>
+            <h3 className="text-xl font-bold text-center mb-4">
+              ELIGE LA HORA
+            </h3>
 
             {loadingSlots ? (
               <p className="text-center text-gray-500">Cargando horarios...</p>
             ) : !selectedDate ? (
-              <p className="text-center text-gray-500">Selecciona una fecha.</p>
+              <p className="text-center text-gray-500">
+                Selecciona una fecha.
+              </p>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {generateSlotsFor(selectedDate)
@@ -333,13 +350,13 @@ const View5Page: React.FC = () => {
                     return (
                       <button
                         key={slot.value}
-                        className={`py-3 rounded-lg font-semibold text-sm transition
-                        ${
-                          isSelected
-                            ? "bg-black text-white shadow-lg scale-[1.03]"
-                            : "bg-white border border-gray-400 hover:bg-gray-100"
-                        }`}
                         onClick={() => setSelectedTime(slot.value)}
+                        className={`py-3 rounded-lg font-semibold text-sm transition
+                          ${
+                            isSelected
+                              ? "bg-black text-white shadow-lg scale-[1.03]"
+                              : "bg-white border border-gray-400 hover:bg-gray-100"
+                          }`}
                       >
                         {slot.display}
                       </button>
@@ -350,29 +367,25 @@ const View5Page: React.FC = () => {
           </div>
         </div>
 
-        {/* INFO DE SERVICIOS */}
+        {/* INFO */}
         <div className="px-6 -top-2 relative text-center">
-          {reservation && (
-            <>
-              <p className="text-sm text-gray-600">
-                <span className="font-semibold">Barbero:</span> {barberName}
-              </p>
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold">Barbero:</span> {barberName}
+          </p>
 
-              <p className="text-sm text-gray-600 mt-1">
-                <span className="font-semibold">Servicios:</span>{" "}
-                {reservation.servicios.map((s) => s.name).join(", ")}
-              </p>
+          <p className="text-sm text-gray-600 mt-1">
+            <span className="font-semibold">Servicios:</span>{" "}
+            {reservation.servicios.map((s) => s.name).join(", ")}
+          </p>
 
-              <p className="text-sm text-gray-600 mt-1">
-                <span className="font-semibold">Total:</span>{" "}
-                ${reservation.precioTotal.toLocaleString("es-CO")}
-              </p>
+          <p className="text-sm text-gray-600 mt-1">
+            <span className="font-semibold">Total:</span>{" "}
+            ${reservation.precioTotal.toLocaleString("es-CO")}
+          </p>
 
-              <p className="text-sm text-gray-600">
-                Duración total: {reservation.duracionTotal} min
-              </p>
-            </>
-          )}
+          <p className="text-sm text-gray-600">
+            Duración total: {reservation.duracionTotal} min
+          </p>
         </div>
 
         {/* BOTÓN FINAL */}

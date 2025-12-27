@@ -5,112 +5,124 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const SEDE_KEY = 'sedeId';
 
 type ServiceCategory = 'CORTES' | 'BARBA' | 'COMBOS' | 'OTROS';
 
 interface Service {
-    id: string;
-    nombre: string;
-    precio: number;
-    duracionMinutos: number;
-    categoria: ServiceCategory;
+  id: string;
+  nombre: string;
+  precio: number;
+  duracionMinutos: number;
+  categoria: ServiceCategory;
 }
 
 const formatDuration = (minutos: number): string => `${minutos} min`;
 
 const determineCategory = (nombre: string): Service['categoria'] => {
-    const name = nombre.toUpperCase();
-    if (name.includes('BARBA') && name.includes('+')) return 'COMBOS';
-    if (name.includes('BARBA')) return 'BARBA';
-    if (name.includes('+')) return 'COMBOS';
-    if (name.includes('CERA') || name.includes('TINTE') || name.includes('CEJAS')) return 'OTROS';
-    return 'CORTES';
+  const name = nombre.toUpperCase();
+  if (name.includes('BARBA') && name.includes('+')) return 'COMBOS';
+  if (name.includes('BARBA')) return 'BARBA';
+  if (name.includes('+')) return 'COMBOS';
+  if (name.includes('CERA') || name.includes('TINTE') || name.includes('CEJAS')) return 'OTROS';
+  return 'CORTES';
 };
 
 const View3Page: React.FC = () => {
-    const router = useRouter();
-    const [services, setServices] = useState<Service[]>([]);
-    const [selectedServices, setSelectedServices] = useState<Service[]>([]);
-    const [activeCategory, setActiveCategory] = useState<ServiceCategory>('CORTES');
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  const [activeCategory, setActiveCategory] = useState<ServiceCategory>('CORTES');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sedeId, setSedeId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchServices = async () => {
-            setLoading(true);
-            setError(null);
+  /* 🔐 Validar sede */
+  useEffect(() => {
+    const sede = localStorage.getItem(SEDE_KEY);
+    if (!sede) {
+      router.replace('/');
+      return;
+    }
+    setSedeId(sede);
+  }, [router]);
 
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/services`);
-                if (!res.ok) throw new Error(`Error ${res.status}`);
+  /* Fetch servicios */
+  useEffect(() => {
+    const fetchServices = async () => {
+      setLoading(true);
+      setError(null);
 
-                const data = await res.json();
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/services`);
+        if (!res.ok) throw new Error(`Error ${res.status}`);
 
-                const mapped: Service[] = data.map((s: any) => ({
-                    id: s.id,
-                    nombre: s.nombre,
-                    precio: s.precio,
-                    duracionMinutos: s.duracion ?? s.duracionMinutos ?? 30,
-                    categoria: determineCategory(s.nombre)
-                }));
+        const data = await res.json();
 
-                // 🟢 ORDENAR DE MAYOR A MENOR PRECIO
-                mapped.sort((a, b) => b.precio - a.precio);
+        const mapped: Service[] = data.map((s: any) => ({
+          id: s.id,
+          nombre: s.nombre,
+          precio: s.precio,
+          duracionMinutos: s.duracion ?? s.duracionMinutos ?? 30,
+          categoria: determineCategory(s.nombre),
+        }));
 
-                setServices(mapped);
-            } catch (err) {
-                console.error(err);
-                setError((err as Error).message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchServices();
-    }, []);
-
-    // 🟢 seleccionar o des-seleccionar servicio
-    const toggleService = (service: Service) => {
-        setSelectedServices(prev =>
-            prev.some(s => s.id === service.id)
-                ? prev.filter(s => s.id !== service.id)
-                : [...prev, service]
-        );
+        mapped.sort((a, b) => b.precio - a.precio);
+        setServices(mapped);
+      } catch (err) {
+        console.error(err);
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    // 🟢 continuar → guardar servicios en localStorage
-    const handleContinue = () => {
-        if (selectedServices.length === 0) return;
+    fetchServices();
+  }, []);
 
-        const duracionTotal = selectedServices.reduce((sum, s) => sum + s.duracionMinutos, 0);
-        const precioTotal = selectedServices.reduce((sum, s) => sum + s.precio, 0);
+  const toggleService = (service: Service) => {
+    setSelectedServices(prev =>
+      prev.some(s => s.id === service.id)
+        ? prev.filter(s => s.id !== service.id)
+        : [...prev, service]
+    );
+  };
 
-        const payload = {
-            servicios: selectedServices.map(s => ({
-                id: s.id,
-                name: s.nombre,
-                price: s.precio,
-                duracionMinutos: s.duracionMinutos
-            })),
-            duracionTotal,
-            precioTotal
-        };
+  const handleContinue = () => {
+    if (!sedeId || selectedServices.length === 0) return;
 
-        localStorage.setItem('abalvi_reserva_servicio', JSON.stringify(payload));
-        router.push('/view4');
+    const duracionTotal = selectedServices.reduce((sum, s) => sum + s.duracionMinutos, 0);
+    const precioTotal = selectedServices.reduce((sum, s) => sum + s.precio, 0);
+
+    const payload = {
+      servicios: selectedServices.map(s => ({
+        id: s.id,
+        name: s.nombre,
+        price: s.precio,
+        duracionMinutos: s.duracionMinutos,
+      })),
+      duracionTotal,
+      precioTotal,
     };
 
-    const filteredServices = services
-        .filter(s => s.categoria === activeCategory)
-        .filter(s => s.id !== "00000000-0000-0000-0000-000000000999");
+    localStorage.setItem('abalvi_reserva_servicio', JSON.stringify(payload));
+    localStorage.setItem(SEDE_KEY, sedeId); // 🔥 persistir sede
+    router.push('/view4');
+  };
 
-    const categories: ServiceCategory[] = ['CORTES', 'BARBA', 'COMBOS', 'OTROS'];
+  if (!sedeId) return null;
 
-    const FONT_AVENIR = "'Avenir', sans-serif";
-    const FONT_AVENIR_BLACK = "'Avenir Black', 'Avenir-Heavy', 'Avenir', sans-serif";
+  const filteredServices = services
+    .filter(s => s.categoria === activeCategory)
+    .filter(s => s.id !== "00000000-0000-0000-0000-000000000999");
 
-    return (
-        <div className="min-h-screen bg-white text-black pb-20">
+  const categories: ServiceCategory[] = ['CORTES', 'BARBA', 'COMBOS', 'OTROS'];
+
+  const FONT_AVENIR = "'Avenir', sans-serif";
+  const FONT_AVENIR_BLACK = "'Avenir Black', 'Avenir-Heavy', 'Avenir', sans-serif";
+
+  return (
+    <div className="min-h-screen bg-white text-black pb-20">
 
             {/* HEADER */}
             <header className="top-0 left-0 right-0 z-20 bg-black py-4 shadow-lg text-center">
@@ -210,8 +222,8 @@ const View3Page: React.FC = () => {
                     Continuar
                 </button>
             </div>
-        </div>
-    );
+    </div>
+  );
 };
 
 export default View3Page;
