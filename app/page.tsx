@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 interface HomeProps {
   whatsappLink?: string;
+  whatsappLinkRecreo?: string;
 }
 
 interface Sede {
@@ -14,6 +15,7 @@ interface Sede {
 
 const Home: React.FC<HomeProps> = ({
   whatsappLink = "https://wa.me/message/2X7HHA2HSUDLJ1",
+  whatsappLinkRecreo = "https://wa.me/message/J56BDE533GOCC1",
 }) => {
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -91,7 +93,15 @@ const Home: React.FC<HomeProps> = ({
             rel="noopener noreferrer"
             className="w-full flex items-center justify-center border border-white bg-black rounded-[18px] py-3 px-6 text-sm md:text-base lg:text-lg font-medium uppercase tracking-widest transition-colors duration-300 hover:bg-white hover:text-black"
           >
-            WhatsApp
+            WhatsApp Sede Alamedas
+          </a>
+                    <a
+            href={whatsappLinkRecreo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center border border-white bg-black rounded-[18px] py-3 px-6 text-sm md:text-base lg:text-lg font-medium uppercase tracking-widest transition-colors duration-300 hover:bg-white hover:text-black"
+          >
+            WhatsApp Sede Recreo
           </a>
         </div>
       </div>
