@@ -41,7 +41,7 @@ const Home: React.FC<HomeProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white justify-center items-center p-16 sm:p-10 lg:p-16">
+    <div className="flex flex-col min-h-screen bg-black text-white justify-center items-center p-16 sm:p-10 lg:p-16 pb-32 sm:pb-32 lg:pb-36">
       <div className="flex flex-col items-center justify-center w-full max-w-lg mx-auto">
         <h1
           className="text-5xl sm:text-5xl lg:text-6xl font-black leading-tight uppercase tracking-wider mb-16 lg:mb-20 text-center"
@@ -96,7 +96,7 @@ const Home: React.FC<HomeProps> = ({
       </div>
 
       <footer className="fixed bottom-10 w-full text-sm lg:text-lg tracking-[0.3em] uppercase flex justify-center items-center">
-        <img src="/Logo.png" alt="logo" className="w-26 h-4 mb-8" />
+        <img src="/Logo.png" alt="logo" className="w-26 h-4" />
       </footer>
     </div>
   );
