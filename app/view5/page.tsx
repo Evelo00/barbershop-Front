@@ -164,7 +164,7 @@ const View5Page: React.FC = () => {
     }
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const fechaHora = `${dateStr}T${selectedTime}:00-05:00`;
+    const fechaHora = `${dateStr}T${selectedTime}:00`;
     localStorage.setItem("abalvi_reserva_fecha_hora", fechaHora);
 
     const clientData = JSON.parse(

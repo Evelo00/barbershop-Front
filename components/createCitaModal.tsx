@@ -57,6 +57,15 @@ export default function CreateCitaModal({
     servicios: "",
   });
 
+  const getTodayLocalDateString = () => {
+    const d = new Date();
+    return [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, "0"),
+      String(d.getDate()).padStart(2, "0"),
+    ].join("-");
+  };
+
   useEffect(() => {
     if (!open) return;
 
@@ -80,14 +89,18 @@ export default function CreateCitaModal({
 
     // 3️⃣ FECHA Y HORA
     if (defaultFecha) {
-      const yyyyMmDd = defaultFecha.toISOString().slice(0, 10);
+      const yyyyMmDd = [
+        defaultFecha.getFullYear(),
+        String(defaultFecha.getMonth() + 1).padStart(2, "0"),
+        String(defaultFecha.getDate()).padStart(2, "0"),
+      ].join("-");
       const hh = String(defaultFecha.getHours()).padStart(2, "0");
       const mm = String(defaultFecha.getMinutes()).padStart(2, "0");
 
       setNewDate(yyyyMmDd);
       setNewTime(`${hh}:${mm}`);
     } else {
-      setNewDate(new Date().toISOString().slice(0, 10));
+      setNewDate(getTodayLocalDateString());
       setNewTime("09:00");
     }
   }, [open, defaultBarberoId, defaultFecha]);
@@ -123,7 +136,7 @@ export default function CreateCitaModal({
   const resetForm = () => {
     setNewBarbero("");
     setSelectedServicios([]);
-    setNewDate(new Date().toISOString().slice(0, 10));
+    setNewDate(getTodayLocalDateString());
     setNewTime("09:00");
 
     setNewNombre("");
@@ -218,13 +231,23 @@ export default function CreateCitaModal({
     if (!validar()) return;
     if (!newBarbero || !newDate || !newTime) return;
 
-    const local = new Date(`${newDate}T${newTime}:00-05:00`);
+    const [hour, minute] = newTime.split(":").map(Number);
+
+    const localDate = new Date(
+      Number(newDate.slice(0, 4)),
+      Number(newDate.slice(5, 7)) - 1,
+      Number(newDate.slice(8, 10)),
+      hour,
+      minute,
+      0,
+      0
+    );
 
     const body: any = {
       sedeId,
       barberoId: newBarbero,
       servicios: selectedServicios.map((s) => s.id),
-      fechaHora: local.toISOString(),
+      fechaHora: localDate.toISOString(),
       nombreCliente: newNombre,
       emailCliente: newEmail || null,
       whatsappCliente: newWhatsapp,
