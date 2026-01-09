@@ -243,11 +243,19 @@ export default function CreateCitaModal({
       0
     );
 
+    const yyyy = localDate.getFullYear();
+    const mm = String(localDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(localDate.getDate()).padStart(2, "0");
+    const hh = String(localDate.getHours()).padStart(2, "0");
+    const min = String(localDate.getMinutes()).padStart(2, "0");
+
+    const fechaHoraLocal = `${yyyy}-${mm}-${dd}T${hh}:${min}:00-05:00`;
+
     const body: any = {
       sedeId,
       barberoId: newBarbero,
       servicios: selectedServicios.map((s) => s.id),
-      fechaHora: localDate.toISOString(),
+      fechaHora: fechaHoraLocal, // 🔥 CAMBIO CLAVE
       nombreCliente: newNombre,
       emailCliente: newEmail || null,
       whatsappCliente: newWhatsapp,

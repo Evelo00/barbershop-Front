@@ -24,20 +24,16 @@ interface Cita {
   id: string;
   barberoId: string;
   clienteId: string | null;
-
   fechaHora: string;
   fechaFin: string;
+  fechaFinLocal?: Date;
   duracionMinutos: number;
-
   estado: "pendiente" | "confirmada" | "cancelada" | "bloqueo";
-
   nombreCliente?: string | null;
   emailCliente?: string | null;
   whatsappCliente?: string | null;
-
   precioFinal: number;
   notas?: string | null;
-
   servicioCita?: {
     id: string;
     nombre: string;
@@ -185,7 +181,6 @@ export default function SuperadminDashboard() {
     }
   };
 
-  /* Fetch CITAS (CON FIX) */
   const fetchCitas = async (): Promise<Cita[]> => {
     try {
       const token = localStorage.getItem("token");
@@ -209,6 +204,14 @@ export default function SuperadminDashboard() {
       const mapped = data.map((cita) => {
         const barbero = users.find((u) => u.id === cita.barberoId);
         const cliente = users.find((u) => u.id === cita.clienteId);
+        const fechaInicioLocal = new Date(cita.fechaHora);
+        const fechaFinLocal = new Date(cita.fechaFin);
+        console.log("CITA:", {
+          id: cita.id,
+          duracion: cita.duracionMinutos,
+          fechaHora: cita.fechaHora,
+        });
+
 
         return {
           ...cita,
@@ -219,11 +222,8 @@ export default function SuperadminDashboard() {
               : [],
           barberoCita: barbero || undefined,
           clienteCita: cliente || undefined,
-
-          // 🔥 FIX que garantiza rerender correctos
-          fechaLocal: new Date(
-            toZonedTime(cita.fechaHora, "America/Bogota").getTime()
-          ),
+          fechaLocal: fechaInicioLocal,
+          fechaFinLocal: fechaFinLocal,
         };
       });
 
@@ -279,9 +279,9 @@ export default function SuperadminDashboard() {
       if (!c.fechaLocal) return false;
       const d = c.fechaLocal;
       return (
-        d.getDate() === currentDate.getDate() &&
+        d.getFullYear() === currentDate.getFullYear() &&
         d.getMonth() === currentDate.getMonth() &&
-        d.getFullYear() === currentDate.getFullYear()
+        d.getDate() === currentDate.getDate()
       );
     });
   }, [citas, currentDate]);
@@ -575,17 +575,13 @@ export default function SuperadminDashboard() {
                 .filter((c) => c.barberoId === barbero.id)
                 .map((cita) => {
                   const fecha = cita.fechaLocal!;
-                  const duracion =
-                    cita.duracionMinutos ??
-                    cita.serviciosCita?.reduce(
-                      (acc, s) => acc + s.duracionMinutos,
-                      0
-                    ) ??
-                    0;
+                  const diffMinutes =
+                    typeof cita.duracionMinutos === "number" && cita.duracionMinutos > 0
+                      ? cita.duracionMinutos
+                      : 30; // fallback seguro
 
-                  const horaFin = new Date(
-                    fecha.getTime() + duracion * 60000
-                  );
+
+                  const horaFin = new Date(fecha.getTime() + diffMinutes * 60000);
 
                   const pxPerMinute = slotHeight / 30;
                   const startMin =
@@ -593,8 +589,9 @@ export default function SuperadminDashboard() {
                     fecha.getMinutes();
 
                   const topPx = startMin * pxPerMinute;
+
                   const heightPx = Math.max(
-                    cita.duracionMinutos * pxPerMinute,
+                    diffMinutes * pxPerMinute,
                     slotHeight
                   );
 
@@ -629,8 +626,8 @@ export default function SuperadminDashboard() {
                         {format12h(fecha)} – {format12h(horaFin)}
                       </div>
 
-                      <div className="text-[11px] font-semibold mb-1 truncate">
-                        {duracion} min
+                      <div className="text-[11px] font-semibold mb-1">
+                        {Math.round(diffMinutes)} min
                       </div>
 
                       {cita.nombreCliente && (
