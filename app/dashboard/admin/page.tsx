@@ -215,11 +215,14 @@ export default function SuperadminDashboard() {
 
         return {
           ...cita,
-          serviciosCita: Array.isArray(cita.serviciosCita)
-            ? cita.serviciosCita
-            : cita.servicioCita
-              ? [cita.servicioCita]
-              : [],
+          serviciosCita: Array.isArray((cita as any).servicios)
+            ? (cita as any).servicios.map((cs: any) => ({
+              id: cs.servicio.id,
+              nombre: cs.servicio.nombre,
+              precio: cs.precio,
+              duracionMinutos: cs.duracion,
+            }))
+            : [],
           barberoCita: barbero || undefined,
           clienteCita: cliente || undefined,
           fechaLocal: fechaInicioLocal,
@@ -594,6 +597,20 @@ export default function SuperadminDashboard() {
                     diffMinutes * pxPerMinute,
                     slotHeight
                   );
+                  const textColor =
+                    cita.estado === "confirmada"
+                      ? "text-white"
+                      : cita.estado === "bloqueo"
+                        ? "text-gray-900"
+                        : cita.estado === "cancelada"
+                          ? "text-red-700"
+                          : "text-gray-800";
+
+                  const secondaryText =
+                    cita.estado === "confirmada"
+                      ? "text-white/80"
+                      : "text-gray-600";
+
 
                   return (
                     <div
@@ -622,32 +639,33 @@ export default function SuperadminDashboard() {
                         scrollbarWidth: "none",
                       }}
                     >
-                      <div className="text-[11px] font-semibold mb-1">
-                        {format12h(fecha)} – {format12h(horaFin)}
-                      </div>
-
-                      <div className="text-[11px] font-semibold mb-1">
-                        {Math.round(diffMinutes)} min
-                      </div>
-
+                      {/* Cliente */}
                       {cita.nombreCliente && (
-                        <div className="text-[12px] font-bold truncate">
+                        <div className={`text-[13px] font-bold truncate mb-1 ${textColor}`}>
                           {cita.nombreCliente}
                         </div>
                       )}
 
+                      {/* Servicios */}
                       {cita.serviciosCita && cita.serviciosCita.length > 0 && (
-                        <div className="mt-1 space-y-0.5">
+                        <div className={`text-[11px] mb-1 space-y-0.5 ${secondaryText}`}>
                           {cita.serviciosCita.map((s) => (
-                            <div
-                              key={s.id}
-                              className="text-[10px] opacity-90 leading-tight truncate"
-                            >
+                            <div key={s.id} className="truncate">
                               • {s.nombre}
                             </div>
                           ))}
                         </div>
                       )}
+
+                      {/* Horario */}
+                      <div className={`text-[11px] font-medium ${secondaryText}`}>
+                        {format12h(fecha)} – {format12h(horaFin)}
+                      </div>
+
+                      {/* Duración */}
+                      <div className={`text-[10px] ${secondaryText}`}>
+                        {Math.round(diffMinutes)} min
+                      </div>
                     </div>
                   );
                 })}
