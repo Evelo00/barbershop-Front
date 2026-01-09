@@ -190,9 +190,13 @@ export default function SuperadminDashboard() {
   const fetchCitas = async (): Promise<Cita[]> => {
     try {
       const token = localStorage.getItem("token");
+      const week = new Date(currentDate);
+      week.setHours(0, 0, 0, 0);
+
+      const weekStr = week.toISOString().slice(0, 10);
 
       const res = await fetch(
-        `${API_BASE_URL}/api/citas?sedeId=${selectedSedeId}`,
+        `${API_BASE_URL}/api/citas?sedeId=${selectedSedeId}&week=${weekStr}`,
         {
           headers: {
             "Content-Type": "application/json",
