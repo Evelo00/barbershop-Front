@@ -167,7 +167,6 @@ export default function SuperadminDashboard() {
       setUsers([]);
     }
   };
-
   /* Fetch SERVICIOS */
   const fetchServicios = async () => {
     try {
@@ -576,8 +575,16 @@ export default function SuperadminDashboard() {
                 .filter((c) => c.barberoId === barbero.id)
                 .map((cita) => {
                   const fecha = cita.fechaLocal!;
+                  const duracion =
+                    cita.duracionMinutos ??
+                    cita.serviciosCita?.reduce(
+                      (acc, s) => acc + s.duracionMinutos,
+                      0
+                    ) ??
+                    0;
+
                   const horaFin = new Date(
-                    fecha.getTime() + cita.duracionMinutos * 60000
+                    fecha.getTime() + duracion * 60000
                   );
 
                   const pxPerMinute = slotHeight / 30;
@@ -623,7 +630,7 @@ export default function SuperadminDashboard() {
                       </div>
 
                       <div className="text-[11px] font-semibold mb-1 truncate">
-                        {cita.duracionMinutos} min
+                        {duracion} min
                       </div>
 
                       {cita.nombreCliente && (
