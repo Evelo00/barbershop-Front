@@ -28,31 +28,15 @@ interface BloqueoModalProps {
 }
 
 function getScheduleForDay(date: Date) {
-    const day = date.getDay(); // 0 domingo
+    const day = date.getDay();
 
     if (day === 0) {
-        return {
-            start: 10,
-            end: 19 - 0.5, // cierre real 19:00, última cita 18:30
-        };
+        return { start: 9, end: 19 }; // domingo 9–19
     }
 
-    if (day >= 1 && day <= 4) {
-        return {
-            start: 8,
-            end: 20 - 0.5, // cierre 20:00 → último slot 19:30
-        };
-    }
-
-    if (day === 5 || day === 6) {
-        return {
-            start: 8,
-            end: 21 - 0.5, // cierre 21:00 → último slot 20:30
-        };
-    }
-
-    return { start: 8, end: 19.5 };
+    return { start: 8, end: 20 }; // lunes a sábado 8–20
 }
+
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -106,7 +90,7 @@ export default function BloqueoModal({
 
     const dateStr = currentDate.toLocaleDateString("en-CA");
 
-        const createBloqueo = (notas?: string) => {
+    const createBloqueo = (notas?: string) => {
         const inicioISO = `${dateStr}T${startTime}:00-05:00`;
         const finISO = `${dateStr}T${endTime}:00-05:00`;
 
@@ -139,13 +123,10 @@ export default function BloqueoModal({
     };
 
     const applyFullDay = () => {
-        const inicio = `${pad(startHour)}:00`;
-        const fin = `${pad(endHour)}:${pad(endMinute)}`;
+        const fechaInicio = `${dateStr}T${pad(start)}:00-05:00`;
+        const fechaFin = `${dateStr}T${pad(end)}:00-05:00`;
 
-        const fechaInicio = `${dateStr}T${inicio}:00-05:00`;
-        const fechaFin = `${dateStr}T${fin}:00-05:00`;
-
-        const totalMin = (endHour * 60 + endMinute) - (startHour * 60);
+        const totalMin = (end - start) * 60;
 
         onApplyBloqueo({
             fechaInicio,

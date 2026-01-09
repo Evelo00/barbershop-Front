@@ -16,6 +16,9 @@ interface CreateCitaModalProps {
   servicios: any[];
   apiUrl: string;
   sedeId?: string | null;
+  // 👉 NUEVO (opcionales)
+  defaultBarberoId?: string;
+  defaultFecha?: Date;
 }
 
 export default function CreateCitaModal({
@@ -26,8 +29,10 @@ export default function CreateCitaModal({
   servicios,
   apiUrl,
   sedeId,
+  defaultBarberoId,
+  defaultFecha,
 }: CreateCitaModalProps) {
-    // CAMPOS BÁSICOS
+  // CAMPOS BÁSICOS
   const [newBarbero, setNewBarbero] = useState("");
   const [selectedServicios, setSelectedServicios] = useState<any[]>([]);
   const [newDate, setNewDate] = useState("");
@@ -53,16 +58,40 @@ export default function CreateCitaModal({
   });
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    // 1️⃣ RESET GENERAL
+    setSearchCliente("");
+    setClientes([]);
+    setActiveIndex(-1);
+    setClienteId(null);
+    setErrors({ nombre: "", whatsapp: "", servicios: "" });
+    setSelectedServicios([]);
+    setNewNombre("");
+    setNewEmail("");
+    setNewWhatsapp("");
+
+    // 2️⃣ BARBERO
+    if (defaultBarberoId) {
+      setNewBarbero(defaultBarberoId);
+    } else {
+      setNewBarbero("");
+    }
+
+    // 3️⃣ FECHA Y HORA
+    if (defaultFecha) {
+      const yyyyMmDd = defaultFecha.toISOString().slice(0, 10);
+      const hh = String(defaultFecha.getHours()).padStart(2, "0");
+      const mm = String(defaultFecha.getMinutes()).padStart(2, "0");
+
+      setNewDate(yyyyMmDd);
+      setNewTime(`${hh}:${mm}`);
+    } else {
       setNewDate(new Date().toISOString().slice(0, 10));
       setNewTime("09:00");
-      setSearchCliente("");
-      setClientes([]);
-      setActiveIndex(-1);
-      setClienteId(null);
-      setErrors({ nombre: "", whatsapp: "", servicios: "" });
     }
-  }, [open]);
+  }, [open, defaultBarberoId, defaultFecha]);
+
 
   useEffect(() => {
     if (searchCliente.trim().length < 2) {

@@ -165,6 +165,7 @@ const View5Page: React.FC = () => {
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const fechaHora = `${dateStr}T${selectedTime}:00-05:00`;
+    localStorage.setItem("abalvi_reserva_fecha_hora", fechaHora);
 
     const clientData = JSON.parse(
       localStorage.getItem("abalvi_reserva_cliente") || "{}"
@@ -234,10 +235,9 @@ const View5Page: React.FC = () => {
         <div
           key={day}
           className={`flex items-center justify-center h-10 w-10 text-sm font-semibold rounded-full cursor-pointer transition
-            ${
-              disabled
-                ? "opacity-30 cursor-not-allowed"
-                : selected
+            ${disabled
+              ? "opacity-30 cursor-not-allowed"
+              : selected
                 ? "bg-white text-black shadow-lg"
                 : "text-white hover:bg-gray-700"
             }
@@ -331,34 +331,28 @@ const View5Page: React.FC = () => {
               </p>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {generateSlotsFor(selectedDate)
-                  .filter((slot) => {
-                    const now = new Date();
-                    const isToday = isSameDay(selectedDate, now);
+                {availableSlots
+                  .map((value) => {
+                    const [h, m] = value.split(":").map(Number);
 
-                    const slotDate = new Date(
-                      `${format(selectedDate, "yyyy-MM-dd")}T${slot.value}:00-05:00`
-                    );
+                    const displayH = h % 12 || 12;
+                    const ampm = h < 12 ? "am" : "pm";
 
-                    const isPast = isToday && slotDate < now;
+                    const display = `${displayH}:${m.toString().padStart(2, "0")} ${ampm}`;
 
-                    return availableSlots.includes(slot.value) && !isPast;
-                  })
-                  .map((slot) => {
-                    const isSelected = selectedTime === slot.value;
+                    const isSelected = selectedTime === value;
 
                     return (
                       <button
-                        key={slot.value}
-                        onClick={() => setSelectedTime(slot.value)}
+                        key={value}
+                        onClick={() => setSelectedTime(value)}
                         className={`py-3 rounded-lg font-semibold text-sm transition
-                          ${
-                            isSelected
-                              ? "bg-black text-white shadow-lg scale-[1.03]"
-                              : "bg-white border border-gray-400 hover:bg-gray-100"
+          ${isSelected
+                            ? "bg-black text-white shadow-lg scale-[1.03]"
+                            : "bg-white border border-gray-400 hover:bg-gray-100"
                           }`}
                       >
-                        {slot.display}
+                        {display}
                       </button>
                     );
                   })}

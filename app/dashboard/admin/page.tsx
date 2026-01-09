@@ -99,10 +99,16 @@ export default function SuperadminDashboard() {
   const [addClienteModal, setAddClienteModal] = useState(false);
   const [sedes, setSedes] = useState<{ id: string; nombre: string }[]>([]);
   const [selectedSedeId, setSelectedSedeId] = useState<string | null>(null);
+  const [quickCreate, setQuickCreate] = useState<{
+    barberoId: string;
+    fecha: Date;
+  } | null>(null);
+  const day = currentDate.getDay(); // 0 = domingo
 
-
-  const START_HOUR = 8;
-  const END_HOUR = 20;
+  const START_HOUR = day === 0 ? 9 : 8;
+  const END_HOUR = day === 0 ? 19 : 20;
+  const SLOT_MINUTES = 30;
+  const TOTAL_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
 
   const slotRef = useRef<HTMLDivElement | null>(null);
   const [slotHeight, setSlotHeight] = useState(48);
@@ -401,7 +407,7 @@ export default function SuperadminDashboard() {
       </header>
 
       {/* SELECTOR FECHA */}
-      <div className="px-4 py-2 flex items-center justify-between text-sm border-b bg-white sticky top-[64px] md:top-[72px] z-40">
+      <div className="px-4 py-2 flex items-center justify-between text-sm border-b bg-white sticky top-[64px] md:top-[70px] z-40">
         <button
           onClick={() =>
             setCurrentDate(new Date(currentDate.getTime() - 86400000))
@@ -431,7 +437,8 @@ export default function SuperadminDashboard() {
       {/* HEADER BARBEROS */}
       {!isMobile && (
         <div
-          className="grid border-b bg-white py-4 px-4 shadow-sm"
+          className="grid border-b bg-white py-4 px-4 shadow-sm
+               sticky top-[105px] z-30 backdrop-blur bg-white/95"
           style={{
             gridTemplateColumns: `80px repeat(${barberos.length}, 1fr)`,
           }}
@@ -507,7 +514,7 @@ export default function SuperadminDashboard() {
           {/* Horas */}
           <div className="border-r text-[10px] md:text-xs text-gray-600 pt-4">
             {Array.from({
-              length: (END_HOUR - START_HOUR + 1) * 2,
+              length: TOTAL_SLOTS,
             }).map((_, i) => {
               const hour = START_HOUR + Math.floor(i / 2);
               const minute = i % 2 === 0 ? "00" : "30";
@@ -519,7 +526,12 @@ export default function SuperadminDashboard() {
                   className="h-12 md:h-16 relative border-b"
                 >
                   <span className="absolute -top-2 left-1">
-                    {hour}:{minute}
+                    {(() => {
+                      let h = hour;
+                      const ampm = h >= 12 ? "PM" : "AM";
+                      h = h % 12 || 12;
+                      return `${h}:${minute} ${ampm}`;
+                    })()}
                   </span>
                 </div>
               );
@@ -530,14 +542,30 @@ export default function SuperadminDashboard() {
           {barberos.map((barbero) => (
             <div key={barbero.id} className="border-r relative">
               {/* Slots vacíos */}
-              {Array.from({
-                length: (END_HOUR - START_HOUR + 1) * 2,
-              }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-12 md:h-16 border-b border-gray-100"
-                ></div>
-              ))}
+              {Array.from({ length: TOTAL_SLOTS }).map((_, i) => {
+                const hour = START_HOUR + Math.floor(i / 2);
+                const minute = i % 2 === 0 ? 0 : 30;
+
+                const slotDate = new Date(currentDate);
+                slotDate.setHours(hour, minute, 0, 0);
+
+                return (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      setQuickCreate({
+                        barberoId: barbero.id,
+                        fecha: slotDate,
+                      });
+                      setCreateModal(true);
+                    }}
+                    className="h-12 md:h-16 border-b border-gray-100
+                 hover:bg-green-50 cursor-pointer
+                 transition-colors"
+                  />
+                );
+              })}
+
 
               {/* Citas */}
               {citasDelDia
@@ -662,12 +690,17 @@ export default function SuperadminDashboard() {
       <Dialog modal={false} open={createModal} onOpenChange={setCreateModal}>
         <CreateCitaModal
           open={createModal}
-          onClose={() => setCreateModal(false)}
+          onClose={() => {
+            setCreateModal(false);
+            setQuickCreate(null);
+          }}
           onCreated={fetchCitas}
           barberos={barberos}
           servicios={servicios}
           apiUrl={API_BASE_URL || ""}
           sedeId={selectedSedeId}
+          defaultBarberoId={quickCreate?.barberoId}
+          defaultFecha={quickCreate?.fecha}
         />
       </Dialog>
 
