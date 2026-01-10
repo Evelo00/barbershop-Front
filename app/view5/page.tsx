@@ -164,7 +164,7 @@ const View5Page: React.FC = () => {
     }
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const fechaHora = `${dateStr}T${selectedTime}:00`;
+    const fechaHora = `${dateStr}T${selectedTime}:00-05:00`;
     localStorage.setItem("abalvi_reserva_fecha_hora", fechaHora);
 
     const clientData = JSON.parse(
@@ -310,6 +310,8 @@ const View5Page: React.FC = () => {
     );
   };
 
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
   return (
     <div className="w-full min-h-screen flex justify-center bg-gray-100">
       <div className="w-full max-w-sm md:max-w-2xl bg-white shadow-xl min-h-screen">
@@ -332,7 +334,24 @@ const View5Page: React.FC = () => {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {availableSlots
+                  .filter((value) => {
+                    if (!selectedDate) return true;
+
+                    const today = new Date();
+                    const isToday =
+                      selectedDate.getFullYear() === today.getFullYear() &&
+                      selectedDate.getMonth() === today.getMonth() &&
+                      selectedDate.getDate() === today.getDate();
+
+                    if (!isToday) return true;
+
+                    const [h, m] = value.split(":").map(Number);
+                    const slotMinutes = h * 60 + m;
+
+                    return slotMinutes > nowMinutes;
+                  })
                   .map((value) => {
+
                     const [h, m] = value.split(":").map(Number);
 
                     const displayH = h % 12 || 12;
