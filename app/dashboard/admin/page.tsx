@@ -656,6 +656,12 @@ export default function SuperadminDashboard() {
                           ))}
                         </div>
                       )}
+                      {/* Teléfono */}
+                      {cita.whatsappCliente && (
+                        <div className={`text-[11px] mb-1 ${secondaryText}`}>
+                          Tel: {cita.whatsappCliente}
+                        </div>
+                      )}
 
                       {/* Horario */}
                       <div className={`text-[11px] font-medium ${secondaryText}`}>
