@@ -19,7 +19,7 @@ import BloqueoModal from "@/components/bloqueo-modal";
 import { useToast } from "@/hooks/use-toast";
 import AgregarCliente from "@/components/agregarCliente";
 import { toZonedTime } from "date-fns-tz";
-
+import { useRouter } from "next/navigation";
 interface Cita {
   id: string;
   barberoId: string;
@@ -110,6 +110,28 @@ export default function SuperadminDashboard() {
   const [slotHeight, setSlotHeight] = useState(48);
 
   const [now, setNow] = useState(new Date());
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userRaw = localStorage.getItem("user");
+
+    if (!token || !userRaw) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
+      const user = JSON.parse(userRaw);
+
+      // 🔒 opcional: proteger por rol
+      if (!["admin", "superadmin"].includes(user.rol)) {
+        router.replace("/login");
+      }
+    } catch {
+      router.replace("/login");
+    }
+  }, []);
 
   /* Detectar móvil */
   useEffect(() => {
@@ -337,9 +359,18 @@ export default function SuperadminDashboard() {
     };
 
     try {
+      const token = localStorage.getItem("token");
+      const userRaw = localStorage.getItem("user");
+
+      console.log("🧪 FRONT TOKEN:", token);
+      console.log("🧪 FRONT USER:", userRaw);
+
       const res = await fetch(`${API_BASE_URL}/api/citas`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(body),
       });
 
