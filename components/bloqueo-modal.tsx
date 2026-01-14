@@ -67,6 +67,13 @@ export default function BloqueoModal({
         window.addEventListener("keydown", onEsc);
         return () => window.removeEventListener("keydown", onEsc);
     }, [open]);
+    // Auto ajustar endTime
+    useEffect(() => {
+        if (endTime <= startTime) {
+            setEndTime(startTime);
+        }
+    }, [startTime]);
+
 
     const handleBackdropClick = (e: React.MouseEvent) => {
         if (e.target === modalRef.current) onClose();
@@ -76,14 +83,8 @@ export default function BloqueoModal({
 
     const timeOptions: string[] = [];
 
-    for (let h = startHour; h <= endHour; h++) {
-        let minutes = [0, 10, 20, 30, 40, 50];
-
-        if (h === endHour) {
-            minutes = minutes.filter((m) => m <= endMinute);
-        }
-
-        for (let m of minutes) {
+    for (let h = startHour; h < endHour; h++) {
+        for (let m of [0, 10, 20, 30, 40, 50]) {
             timeOptions.push(`${pad(h)}:${pad(m)}`);
         }
     }
@@ -123,10 +124,10 @@ export default function BloqueoModal({
     };
 
     const applyFullDay = () => {
-        const fechaInicio = `${dateStr}T${pad(start)}:00-05:00`;
-        const fechaFin = `${dateStr}T${pad(end)}:00-05:00`;
+        const fechaInicio = `${dateStr}T${pad(startHour)}:00-05:00`;
+        const fechaFin = `${dateStr}T${pad(endHour)}:00-05:00`;
 
-        const totalMin = (end - start) * 60;
+        const totalMin = (endHour - startHour) * 60;
 
         onApplyBloqueo({
             fechaInicio,

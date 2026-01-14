@@ -6,6 +6,7 @@ export default function View6() {
   const [barbero, setBarbero] = useState("");
   const [servicios, setServicios] = useState("");
   const [hora, setHora] = useState("");
+  const [dia, setDia] = useState("");
 
   useEffect(() => {
     // BARBERO
@@ -22,7 +23,7 @@ export default function View6() {
             reservation.servicios.map((s: any) => s.name).join(", ")
           );
         }
-      } catch {}
+      } catch { }
     }
 
     // FECHA / HORA
@@ -36,6 +37,15 @@ export default function View6() {
             minute: "2-digit",
           })
         );
+
+        setDia(
+          date.toLocaleDateString("es-CO", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })
+        );
+
       }
     }
   }, []);
@@ -68,6 +78,8 @@ export default function View6() {
               <span className="font-semibold text-white">{servicios}</span>{" "}
               con{" "}
               <span className="font-semibold text-white">{barbero}</span>{" "}
+              el{" "}
+              <span className="font-semibold text-white capitalize">{dia}</span>{" "}
               a las{" "}
               <span className="font-semibold text-white">{hora}</span>.
             </p>

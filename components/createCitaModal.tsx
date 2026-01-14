@@ -116,9 +116,7 @@ export default function CreateCitaModal({
       try {
         setLoadingClientes(true);
         const res = await fetch(
-          `${apiUrl}/api/citas/clientes/buscar?q=${encodeURIComponent(
-            searchCliente
-          )}`
+          `${apiUrl}/api/citas/clientes/buscar?q=${encodeURIComponent(searchCliente)}`
         );
         const data = await res.json();
         setClientes(Array.isArray(data) ? data : []);
@@ -255,20 +253,21 @@ export default function CreateCitaModal({
       sedeId,
       barberoId: newBarbero,
       servicios: selectedServicios.map((s) => s.id),
-      fechaHora: fechaHoraLocal, // 🔥 CAMBIO CLAVE
+      fechaHora: fechaHoraLocal,
       nombreCliente: newNombre,
       emailCliente: newEmail || null,
       whatsappCliente: newWhatsapp,
     };
 
-    if (clienteId) {
-      body.clienteId = clienteId;
-    }
+    if (clienteId) body.clienteId = clienteId;
 
     try {
-      const res = await fetch(`${apiUrl}/api/citas/public`, {
+      const res = await fetch(`${apiUrl}/api/citas`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
         body: JSON.stringify(body),
       });
 

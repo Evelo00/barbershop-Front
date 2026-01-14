@@ -39,6 +39,7 @@ interface CitaModalContentProps {
   closeModal: () => void;
   onUpdated?: (id?: string) => void;
   servicios: any[];
+  barberos: any[];
 }
 
 function utcToLocalInput(datetime: string) {
@@ -77,10 +78,12 @@ export function CitaModalContent({
   closeModal,
   onUpdated,
   servicios,
+  barberos,
 }: CitaModalContentProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [barberoId, setBarberoId] = useState(cita.barberoId);
 
   const [localServicios, setLocalServicios] = useState<ServicioCita[]>(
     cita.servicios || []
@@ -120,6 +123,7 @@ export function CitaModalContent({
 
       const payload = {
         ...form,
+        barberoId,
         fechaHora: fechaHoraNormalizada,
         servicios: localServicios.map((s) => ({
           servicioId: s.servicioId ?? s.servicio?.id,
@@ -129,7 +133,7 @@ export function CitaModalContent({
       };
 
       const res = await fetch(`${API_BASE_URL}/api/citas/${cita.id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -219,6 +223,10 @@ export function CitaModalContent({
 
     setLocalServicios(cita.servicios || []);
 
+  }, [cita]);
+
+  useEffect(() => {
+    setBarberoId(cita.barberoId);
   }, [cita]);
 
 
@@ -420,6 +428,25 @@ export function CitaModalContent({
               ))}
             </select>
           </div>
+        </div>
+        <div>
+          <label className="text-sm font-semibold text-gray-700">
+            Barbero
+          </label>
+
+          <select
+            className="w-full border mt-1 rounded-lg px-3 py-2"
+            value={barberoId}
+            onChange={(e) => setBarberoId(e.target.value)}
+          >
+            <option value="">Seleccione un barbero</option>
+
+            {barberos.map((b: any) => (
+              <option key={b.id} value={b.id}>
+                {b.nombre} {b.apellido}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* FECHA */}

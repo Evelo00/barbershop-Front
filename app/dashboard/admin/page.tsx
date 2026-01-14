@@ -22,6 +22,7 @@ import { toZonedTime } from "date-fns-tz";
 import { useRouter } from "next/navigation";
 interface Cita {
   id: string;
+  createFrom?: "admin" | "cliente";
   barberoId: string;
   clienteId: string | null;
   fechaHora: string;
@@ -703,6 +704,18 @@ export default function SuperadminDashboard() {
                       <div className={`text-[10px] ${secondaryText}`}>
                         {Math.round(diffMinutes)} min
                       </div>
+                      {cita.createFrom && (
+                        <div
+                          className={`
+      mt-1 text-[9px] uppercase tracking-wide font-semibold
+      ${cita.createFrom === "admin"
+                              ? "text-yellow-300"
+                              : "text-white/70"}
+    `}
+                        >
+                          {cita.createFrom === "admin" ? "ADMIN" : "CLIENTE"}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -722,6 +735,7 @@ export default function SuperadminDashboard() {
             cita={selectedCita}
             closeModal={() => setSelectedCita(null)}
             servicios={servicios}
+            barberos={barberos}
             onUpdated={async (updatedId) => {
               const listaNueva = await fetchCitas();
 
