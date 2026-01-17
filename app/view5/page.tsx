@@ -9,10 +9,13 @@ import {
   startOfMonth,
   endOfMonth,
   isSameDay,
-  isBefore,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import {
+  getBookingRange,
+  isDateAllowed,
+} from "@/components/bookingDateRange";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -90,6 +93,7 @@ const View5Page: React.FC = () => {
 
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { startAllowed, endAllowed } = getBookingRange();
 
   const showMessage = (msg: string) => {
     setMessage(msg);
@@ -146,9 +150,36 @@ const View5Page: React.FC = () => {
   };
 
   const changeMonth = (dir: "prev" | "next") => {
-    setCurrentMonth((prev) =>
-      dir === "prev" ? subMonths(prev, 1) : addMonths(prev, 1)
+    const newMonth = new Date(currentMonth);
+
+    newMonth.setMonth(
+      dir === "prev"
+        ? newMonth.getMonth() - 1
+        : newMonth.getMonth() + 1
     );
+
+    const monthStart = new Date(
+      newMonth.getFullYear(),
+      newMonth.getMonth(),
+      1
+    );
+
+    const monthEnd = new Date(
+      newMonth.getFullYear(),
+      newMonth.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    // 🔒 Evitar salir del rango permitido
+    if (monthEnd < startAllowed || monthStart > endAllowed) {
+      return;
+    }
+
+    setCurrentMonth(newMonth);
     setSelectedDate(null);
     setSelectedTime(null);
     setAvailableSlots([]);
@@ -205,58 +236,20 @@ const View5Page: React.FC = () => {
     }
   };
 
-  /* =========================
-     RENDER CALENDARIO
-  ========================= */
+  const getAllowedDays = () => {
+    const days: Date[] = [];
+    const current = new Date(startAllowed);
+
+    while (current <= endAllowed) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+
+    return days;
+  };
+
   const renderCalendar = () => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(monthStart);
-    const startIndex = (monthStart.getDay() + 6) % 7;
-    const daysInMonth = monthEnd.getDate();
-
-    const rows: JSX.Element[] = [];
-    let cells: JSX.Element[] = [];
-
-    for (let i = 0; i < startIndex; i++) {
-      cells.push(<div key={`empty-${i}`} className="h-10 w-10"></div>);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(
-        currentMonth.getFullYear(),
-        currentMonth.getMonth(),
-        day
-      );
-
-      const disabled = isBefore(date, new Date().setHours(0, 0, 0, 0));
-      const selected = selectedDate && isSameDay(date, selectedDate);
-
-      cells.push(
-        <div
-          key={day}
-          className={`flex items-center justify-center h-10 w-10 text-sm font-semibold rounded-full cursor-pointer transition
-            ${disabled
-              ? "opacity-30 cursor-not-allowed"
-              : selected
-                ? "bg-white text-black shadow-lg"
-                : "text-white hover:bg-gray-700"
-            }
-          `}
-          onClick={() => !disabled && handleDaySelect(date)}
-        >
-          {day}
-        </div>
-      );
-
-      if (((date.getDay() + 6) % 7 === 6) || day === daysInMonth) {
-        rows.push(
-          <div key={`week-${rows.length}`} className="grid grid-cols-7 gap-1 mb-1">
-            {cells}
-          </div>
-        );
-        cells = [];
-      }
-    }
+    const days = getAllowedDays();
 
     return (
       <div
@@ -277,35 +270,32 @@ const View5Page: React.FC = () => {
           ELIGE LA FECHA
         </h2>
 
-        <div className="flex justify-between items-center mb-4">
-          <button
-            onClick={() => changeMonth("prev")}
-            className="text-white text-2xl p-2 hover:bg-gray-700 rounded-full"
-          >
-            <ArrowLeft />
-          </button>
+        {/* SEMANAS */}
+        <div className="grid grid-cols-7 gap-2">
+          {days.map((date) => {
+            const selected = selectedDate && isSameDay(date, selectedDate);
 
-          <span className="text-white font-bold text-lg tracking-wider">
-            {format(currentMonth, "MMMM yyyy", { locale: es }).toUpperCase()}
-          </span>
+            return (
+              <button
+                key={date.toISOString()}
+                onClick={() => handleDaySelect(date)}
+                className={`flex items-center justify-center
+      w-10 h-10
+      font-semibold transition
+      ${selected
+                    ? "bg-white text-black rounded-full shadow-lg"
+                    : "text-white"
+                  }
+    `}
+              >
+                <span className="text-sm leading-none">
+                  {date.getDate()}
+                </span>
+              </button>
+            );
 
-          <button
-            onClick={() => changeMonth("next")}
-            className="text-white text-2xl p-2 hover:bg-gray-700 rounded-full"
-          >
-            <ArrowRight />
-          </button>
+          })}
         </div>
-
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {["LU", "MA", "MI", "JU", "VI", "SA", "DO"].map((d) => (
-            <div key={d} className="text-gray-300 text-center text-xs font-semibold">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        {rows}
       </div>
     );
   };
