@@ -521,7 +521,7 @@ export default function SuperadminDashboard() {
         {currentTimeTop !== null && (
           <>
             <div
-              className="absolute left-0 right-0 z-40 pointer-events-none"
+              className="absolute left-0 right-0 z-20 pointer-events-none"
               style={{
                 top: currentTimeTop,
                 height: "2px",
@@ -530,7 +530,7 @@ export default function SuperadminDashboard() {
             />
 
             <div
-              className="absolute z-50 pointer-events-none"
+              className="absolute z-20 pointer-events-none"
               style={{
                 top: currentTimeTop - 4,
                 left: 72,
@@ -709,7 +709,7 @@ export default function SuperadminDashboard() {
                           className={`
       mt-1 text-[9px] uppercase tracking-wide font-semibold
       ${cita.createFrom === "admin"
-                              ? "text-yellow-300"
+                              ? "text-gray-900"
                               : "text-white/70"}
     `}
                         >
