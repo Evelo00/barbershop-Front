@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 interface ReservaData {
   nombre: string;
+  apellido: string;
   correo?: string;
   whatsapp: string;
 }
@@ -19,6 +20,7 @@ const View2Page: React.FC = () => {
   const [submissionMessage, setSubmissionMessage] = useState<string>('');
   const [formData, setFormData] = useState<ReservaData>({
     nombre: '',
+    apellido: '',
     correo: '',
     whatsapp: '',
   });
@@ -136,6 +138,20 @@ const View2Page: React.FC = () => {
                 type="text"
                 name="nombre"
                 value={formData.nombre}
+                onChange={handleInputChange}
+                required
+                className="w-full border-2 border-black rounded-full py-3 px-4"
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-1 text-center text-gray-700">
+                Apellido *
+              </label>
+              <input
+                type="text"
+                name="apellido"
+                value={formData.apellido}
                 onChange={handleInputChange}
                 required
                 className="w-full border-2 border-black rounded-full py-3 px-4"

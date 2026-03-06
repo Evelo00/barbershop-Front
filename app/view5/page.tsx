@@ -202,13 +202,15 @@ const View5Page: React.FC = () => {
       localStorage.getItem("abalvi_reserva_cliente") || "{}"
     );
 
+    const fullName = `${clientData.nombre} ${clientData.apellido}`;
+
     const body = {
       sedeId,
       barberoId: barberId,
       fechaHora,
       servicios: reservation.servicios.map((s) => s.id),
       precioFinal: reservation.precioTotal,
-      nombreCliente: clientData.nombre || null,
+      nombreCliente: fullName || null,
       emailCliente: clientData.correo || null,
       whatsappCliente: clientData.whatsapp || null,
       notas: null,
@@ -338,7 +340,7 @@ const View5Page: React.FC = () => {
                     const [h, m] = value.split(":").map(Number);
                     const slotMinutes = h * 60 + m;
 
-                    return slotMinutes > nowMinutes;
+                    return slotMinutes > nowMinutes + 30;
                   })
                   .map((value) => {
 
@@ -356,7 +358,7 @@ const View5Page: React.FC = () => {
                         key={value}
                         onClick={() => setSelectedTime(value)}
                         className={`py-3 rounded-lg font-semibold text-sm transition
-          ${isSelected
+                          ${isSelected
                             ? "bg-black text-white shadow-lg scale-[1.03]"
                             : "bg-white border border-gray-400 hover:bg-gray-100"
                           }`}
