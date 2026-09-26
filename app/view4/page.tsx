@@ -181,9 +181,8 @@ const View4Page: React.FC = () => {
             </div>
           ) : (
             <div
-              className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 ${
-                isLoading ? "opacity-50 pointer-events-none" : ""
-              }`}
+              className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 ${isLoading ? "opacity-50 pointer-events-none" : ""
+                }`}
             >
               {barbers.map((barber) => (
                 <div
@@ -191,18 +190,23 @@ const View4Page: React.FC = () => {
                   onClick={() =>
                     handleSelectBarber(barber.id, barber.nombre)
                   }
-                  className={`p-2 text-center rounded-lg cursor-pointer transition-all border-2 ${
-                    selectedBarber === barber.id
+                  className={`p-2 text-center rounded-lg cursor-pointer transition-all border-2 ${selectedBarber === barber.id
                       ? "bg-gray-200 border-black scale-105"
                       : "bg-white border-transparent hover:border-gray-300"
-                  }`}
+                    }`}
                 >
                   <div className="w-full aspect-square bg-gray-200 rounded-lg overflow-hidden">
                     {barber.avatar ? (
                       <img
-                        src={barber.avatar}
+                        src={`${API_BASE_URL}/public/${barber.avatar}`}
                         className="w-full h-full object-cover"
                         alt={barber.nombre}
+                        onError={(e) => {
+                          console.error(
+                            "❌ Error cargando avatar:",
+                            `${API_BASE_URL}/public/${barber.avatar}`
+                          );
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
