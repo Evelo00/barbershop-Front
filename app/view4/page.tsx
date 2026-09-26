@@ -191,8 +191,8 @@ const View4Page: React.FC = () => {
                     handleSelectBarber(barber.id, barber.nombre)
                   }
                   className={`p-2 text-center rounded-lg cursor-pointer transition-all border-2 ${selectedBarber === barber.id
-                      ? "bg-gray-200 border-black scale-105"
-                      : "bg-white border-transparent hover:border-gray-300"
+                    ? "bg-gray-200 border-black scale-105"
+                    : "bg-white border-transparent hover:border-gray-300"
                     }`}
                 >
                   <div className="w-full aspect-square bg-gray-200 rounded-lg overflow-hidden">
@@ -204,7 +204,7 @@ const View4Page: React.FC = () => {
                         onError={(e) => {
                           console.error(
                             "❌ Error cargando avatar:",
-                            `${API_BASE_URL}/public/${barber.avatar}`
+                            e.currentTarget.src
                           );
                         }}
                       />
